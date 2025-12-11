@@ -10,3 +10,8 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # Omit these keys from Netlify's secrets scanning during build. These
+  # are placeholder keys that are intentionally configured via the Netlify
+  # Site UI (Environment > Build & Deploy > Environment) and should not
+  # be committed to the repository.
+  SECRETS_SCAN_OMIT_KEYS = "PORT,FRONTEND_URL,JWT_SECRET,DATABASE_URL,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,GOOGLE_CLIENT_SECRET,SESSION_SECRET"
