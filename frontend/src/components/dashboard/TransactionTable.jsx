@@ -88,6 +88,9 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                   <SortIcon columnKey="total_payment" />
                 </div>
               </TableHead>
+              <TableHead className="font-semibold text-slate-700">Pay Due</TableHead>
+              <TableHead className="font-semibold text-slate-700">Pay Recv</TableHead>
+              <TableHead className="font-semibold text-slate-700">Balance</TableHead>
               <TableHead className="font-semibold text-slate-700">Notes</TableHead>
               {showUser && <TableHead className="font-semibold text-slate-700">Added By</TableHead>}
               <TableHead className="font-semibold text-slate-700 text-right">Actions</TableHead>
@@ -97,7 +100,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
             <AnimatePresence>
               {sortedTransactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showUser ? 12 : 11} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={showUser ? 15 : 14} className="text-center py-12 text-slate-500">
                     No transactions found
                   </TableCell>
                 </TableRow>
@@ -170,6 +173,37 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                     </TableCell>
                     <TableCell className="font-bold text-slate-800">
                       ₹{(transaction.total_payment || 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-xs">
+                      {transaction.transaction_type === 'selling' && transaction.sell_items?.[0] ? (
+                        transaction.sell_items[0].payment_due_days ? (
+                          <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-md font-medium">
+                            {transaction.sell_items[0].payment_due_days} days
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-xs">
+                      {transaction.transaction_type === 'selling' && transaction.sell_items?.[0] ? (
+                        <span className="font-semibold text-green-700">
+                          ₹{(transaction.sell_items[0].payment_received || 0).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-xs">
+                      {transaction.transaction_type === 'selling' && transaction.sell_items?.[0] ? (
+                        <span className={`font-bold ${transaction.sell_items[0].balance_left > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          ₹{(transaction.sell_items[0].balance_left || 0).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-600 text-sm max-w-[200px] truncate">
                       {transaction.notes || '-'}

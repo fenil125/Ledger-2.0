@@ -13,6 +13,7 @@ const ITEM_NAMES = [
 ];
 
 export default function SellingForm({ transaction, parties, onSubmit, isLoading }) {
+  const [itemInputMode, setItemInputMode] = useState('dropdown'); // 'dropdown' or 'manual'
   const [formData, setFormData] = useState({
     transaction_type: 'selling',
     date: new Date().toISOString().split('T')[0],
@@ -22,6 +23,9 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
     count: '',
     weight_per_item: '',
     rate_per_item: '',
+    payment_due_days: '',
+    payment_received: 0,
+    balance_left: 0,
     total_weight: 0,
     total_payment: 0,
     notes: ''
@@ -39,6 +43,9 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
         count: sellItem?.count || '',
         weight_per_item: sellItem?.weight_per_item || '',
         rate_per_item: sellItem?.rate_per_item || '',
+        payment_due_days: sellItem?.payment_due_days || '',
+        payment_received: sellItem?.payment_received || 0,
+        balance_left: sellItem?.balance_left || 0,
         total_weight: transaction.total_weight || 0,
         total_payment: transaction.total_payment || 0,
         notes: transaction.notes || ''
@@ -62,6 +69,18 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
     }));
   }, [formData.count, formData.weight_per_item, formData.rate_per_item]);
 
+  // Auto-calculate balance left when total_payment or payment_received changes
+  useEffect(() => {
+    const totalPayment = parseFloat(formData.total_payment) || 0;
+    const paymentReceived = parseFloat(formData.payment_received) || 0;
+    const balanceLeft = totalPayment - paymentReceived;
+
+    setFormData(prev => ({
+      ...prev,
+      balance_left: balanceLeft
+    }));
+  }, [formData.total_payment, formData.payment_received]);
+
   const handlePartySelect = (partyName) => {
     const party = parties.find(p => p.name === partyName);
     setFormData(prev => ({
@@ -78,6 +97,9 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
       count: parseFloat(formData.count) || 0,
       weight_per_item: parseFloat(formData.weight_per_item) || 0,
       rate_per_item: parseFloat(formData.rate_per_item) || 0,
+      payment_due_days: formData.payment_due_days ? parseInt(formData.payment_due_days) : null,
+      payment_received: parseFloat(formData.payment_received) || 0,
+      balance_left: parseFloat(formData.balance_left) || 0,
       total_weight: parseFloat(formData.total_weight) || 0,
       total_payment: parseFloat(formData.total_payment) || 0
     });
@@ -143,7 +165,13 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
           <CardContent className="space-y-4">
             <div>
               <Label className="text-purple-600">Item Name</Label>
-              <Select value={formData.item_name} onValueChange={(v) => setFormData({ ...formData, item_name: v })}>
+              <Select 
+                value={itemInputMode === 'dropdown' ? formData.item_name : ''} 
+                onValueChange={(v) => {
+                  setItemInputMode('dropdown');
+                  setFormData({ ...formData, item_name: v });
+                }}
+              >
                 <SelectTrigger className="mt-1 bg-white">
                   <SelectValue placeholder="Select item" />
                 </SelectTrigger>
@@ -155,8 +183,11 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
               </Select>
               <Input
                 placeholder="Or enter new item name"
-                value={formData.item_name}
-                onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
+                value={itemInputMode === 'manual' ? formData.item_name : ''}
+                onChange={(e) => {
+                  setItemInputMode('manual');
+                  setFormData({ ...formData, item_name: e.target.value });
+                }}
                 className="mt-2 bg-white"
                 required
               />
@@ -196,6 +227,47 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
                 className="mt-1 bg-white"
                 required
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Details */}
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-blue-700">Payment Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-blue-600">Payment Due (In Days)</Label>
+              <Input
+                type="number"
+                placeholder="e.g., 30 (optional)"
+                value={formData.payment_due_days}
+                onChange={(e) => setFormData({ ...formData, payment_due_days: e.target.value })}
+                className="mt-1 bg-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Number of days until payment is due</p>
+            </div>
+            <div>
+              <Label className="text-blue-600">Payment Received (Credit)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 5000"
+                value={formData.payment_received}
+                onChange={(e) => setFormData({ ...formData, payment_received: e.target.value })}
+                className="mt-1 bg-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Amount already received/credited</p>
+            </div>
+            <div className="pt-2 border-t border-blue-200">
+              <p className="text-sm text-blue-600">Balance Left</p>
+              <p className="text-2xl font-bold text-blue-700">
+                ₹{formData.balance_left.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Total Payment - Payment Received
+              </p>
             </div>
           </CardContent>
         </Card>

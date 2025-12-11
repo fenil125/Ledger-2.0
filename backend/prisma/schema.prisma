@@ -111,6 +111,9 @@ model SellItem {
   ratePerItem    Float         // Rate per item (₹/item) - NOT per kg
   totalWeight    Float         // count × weightPerItem
   totalAmount    Float         // count × ratePerItem
+  paymentDueDays Int?          // Payment due in days (optional)
+  paymentReceived Float        @default(0) // Amount received/credited
+  balanceLeft    Float         @default(0) // totalAmount - paymentReceived
   createdAt      DateTime      @default(now())
   
   // Relations

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "SellItem" ADD COLUMN     "balanceLeft" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "paymentDueDays" INTEGER,
+ADD COLUMN     "paymentReceived" DOUBLE PRECISION NOT NULL DEFAULT 0;

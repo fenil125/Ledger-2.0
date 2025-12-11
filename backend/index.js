@@ -93,6 +93,9 @@ function mapTransaction(tx) {
       rate_per_item: item.ratePerItem,
       total_weight: item.totalWeight,
       total_amount: item.totalAmount,
+      payment_due_days: item.paymentDueDays,
+      payment_received: item.paymentReceived,
+      balance_left: item.balanceLeft,
     })) || [],
   };
 }
@@ -511,6 +514,9 @@ app.post('/api/transactions', authenticateToken, upload.fields([
             ratePerItem: parseFloat(data.rate_per_item || 0),
             totalWeight: parseFloat(data.total_weight || 0),
             totalAmount: parseFloat(data.total_payment || 0),
+            paymentDueDays: data.payment_due_days ? parseInt(data.payment_due_days) : null,
+            paymentReceived: parseFloat(data.payment_received || 0),
+            balanceLeft: parseFloat(data.total_payment || 0) - parseFloat(data.payment_received || 0),
           }]
         } : undefined,
       },
