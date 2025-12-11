@@ -6,7 +6,8 @@ import { Chrome, ShieldCheck, TrendingUp, Users } from "lucide-react";
 
 export default function Login() {
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:4000/auth/google';
+    const api = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    window.location.href = `${api}/auth/google`;
   };
 
   return (
