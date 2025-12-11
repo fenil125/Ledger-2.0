@@ -10,4 +10,5 @@ npm install
 npm run dev
 ```
 
-Open the printed Vite URL (usually `http://localhost:5173`).
+Open the printed Vite URL (e.g., `http://localhost:5173` or the address shown by Vite).
+(Do **not** commit your development `.env` file with real URLs or secrets.)
