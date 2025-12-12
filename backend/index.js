@@ -625,33 +625,51 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     
     // Update buy items if this is a buying transaction
     if (data.transaction_type === 'buying' && existing.buyItems.length > 0) {
-      await prisma.buyItem.updateMany({
-        where: { transactionId: req.params.id },
-        data: {
-          hnyRate: data.hny_rate ? parseFloat(data.hny_rate) : undefined,
-          hnyWeight: data.hny_weight ? parseFloat(data.hny_weight) : undefined,
-          blackRate: data.black_rate ? parseFloat(data.black_rate) : undefined,
-          blackWeight: data.black_weight ? parseFloat(data.black_weight) : undefined,
-          transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
-        }
-      });
+      const buyItemUpdate = {
+        hnyRate: data.hny_rate ? parseFloat(data.hny_rate) : undefined,
+        hnyColor: data.hny_weight ? parseFloat(data.hny_weight) : undefined,
+        blackRate: data.black_rate ? parseFloat(data.black_rate) : undefined,
+        blackColor: data.black_weight ? parseFloat(data.black_weight) : undefined,
+        transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
+      };
+      // Remove undefined values
+      Object.keys(buyItemUpdate).forEach(key => buyItemUpdate[key] === undefined && delete buyItemUpdate[key]);
+      
+      if (Object.keys(buyItemUpdate).length > 0) {
+        await prisma.buyItem.updateMany({
+          where: { transactionId: req.params.id },
+          data: buyItemUpdate
+        });
+      }
     }
     
     // Update sell items if this is a selling transaction
     if (data.transaction_type === 'selling' && existing.sellItems.length > 0) {
-      await prisma.sellItem.updateMany({
-        where: { transactionId: req.params.id },
-        data: {
-          itemName: data.item_name,
-          count: data.count ? parseInt(data.count) : undefined,
-          weightPerItem: data.weight_per_item ? parseFloat(data.weight_per_item) : undefined,
-          ratePerItem: data.rate_per_item ? parseFloat(data.rate_per_item) : undefined,
-          transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
-          paymentDueDays: data.payment_due_days ? parseInt(data.payment_due_days) : undefined,
-          paymentReceived: data.payment_received ? parseFloat(data.payment_received) : undefined,
-          balanceLeft: data.balance_left ? parseFloat(data.balance_left) : undefined,
-        }
-      });
+      const count = data.count ? parseFloat(data.count) : undefined;
+      const weightPerItem = data.weight_per_item ? parseFloat(data.weight_per_item) : undefined;
+      const ratePerItem = data.rate_per_item ? parseFloat(data.rate_per_item) : undefined;
+      
+      const sellItemUpdate = {
+        itemName: data.item_name || undefined,
+        count: count,
+        weightPerItem: weightPerItem,
+        ratePerItem: ratePerItem,
+        totalWeight: (count !== undefined && weightPerItem !== undefined) ? count * weightPerItem : undefined,
+        totalAmount: (count !== undefined && ratePerItem !== undefined) ? count * ratePerItem : undefined,
+        transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
+        paymentDueDays: data.payment_due_days ? parseInt(data.payment_due_days) : undefined,
+        paymentReceived: data.payment_received !== undefined ? parseFloat(data.payment_received) : undefined,
+        balanceLeft: data.balance_left !== undefined ? parseFloat(data.balance_left) : undefined,
+      };
+      // Remove undefined values
+      Object.keys(sellItemUpdate).forEach(key => sellItemUpdate[key] === undefined && delete sellItemUpdate[key]);
+      
+      if (Object.keys(sellItemUpdate).length > 0) {
+        await prisma.sellItem.updateMany({
+          where: { transactionId: req.params.id },
+          data: sellItemUpdate
+        });
+      }
     }
     
     const transaction = await prisma.transaction.update({
