@@ -341,8 +341,10 @@ export default function Reports() {
                     <TableHead className="font-bold text-slate-700">Phone</TableHead>
                     <TableHead className="font-bold text-slate-700">HNY (Rate / Wt)</TableHead>
                     <TableHead className="font-bold text-slate-700">Black (Rate / Wt)</TableHead>
-                    <TableHead className="font-bold text-slate-700">Total Weight (kg)</TableHead>
-                    <TableHead className="font-bold text-slate-700">Total Payment (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Net Weight (kg)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Base Payment (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Transport (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Total w/ Transport (₹)</TableHead>
                     <TableHead className="font-bold text-slate-700">Notes</TableHead>
                     <TableHead className="font-bold text-slate-700">Added By</TableHead>
                   </TableRow>
@@ -350,7 +352,7 @@ export default function Reports() {
                 <TableBody>
                   {buyingTransactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-12 text-slate-500">
+                      <TableCell colSpan={12} className="text-center py-12 text-slate-500">
                         No buying transactions found
                       </TableCell>
                     </TableRow>
@@ -376,8 +378,14 @@ export default function Reports() {
                           </div>
                         </TableCell>
                         <TableCell className="font-semibold text-slate-900">{t.total_weight}</TableCell>
-                        <TableCell className="font-bold text-red-700">
+                        <TableCell className="font-bold text-slate-700">
                           {t.total_payment.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-semibold text-orange-700">
+                          {(t.transportation_charges || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-bold text-red-700">
+                          {((t.total_payment || 0) + (t.transportation_charges || 0)).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-slate-600 max-w-xs truncate">
                           {t.notes || '-'}
@@ -432,8 +440,10 @@ export default function Reports() {
                     <TableHead className="font-bold text-slate-700">Party</TableHead>
                     <TableHead className="font-bold text-slate-700">Phone</TableHead>
                     <TableHead className="font-bold text-slate-700">Items (summary)</TableHead>
-                    <TableHead className="font-bold text-slate-700">Total Weight (kg)</TableHead>
-                    <TableHead className="font-bold text-slate-700">Total Payment (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Net Weight (kg)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Base Payment (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Transport (₹)</TableHead>
+                    <TableHead className="font-bold text-slate-700">Total w/ Transport (₹)</TableHead>
                     <TableHead className="font-bold text-slate-700">Pay Due</TableHead>
                     <TableHead className="font-bold text-slate-700">Pay Recv</TableHead>
                     <TableHead className="font-bold text-slate-700">Balance</TableHead>
@@ -444,7 +454,7 @@ export default function Reports() {
                 <TableBody>
                   {sellingTransactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center py-12 text-slate-500">
+                      <TableCell colSpan={14} className="text-center py-12 text-slate-500">
                         No selling transactions found
                       </TableCell>
                     </TableRow>
@@ -471,8 +481,14 @@ export default function Reports() {
                           )}
                         </TableCell>
                         <TableCell className="font-semibold text-slate-900">{t.total_weight}</TableCell>
-                        <TableCell className="font-bold text-green-700">
+                        <TableCell className="font-bold text-slate-700">
                           {t.total_payment.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-semibold text-orange-700">
+                          {(t.transportation_charges || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-bold text-green-700">
+                          {((t.total_payment || 0) + (t.transportation_charges || 0)).toLocaleString()}
                         </TableCell>
                         <TableCell>
                           {t.sell_items && t.sell_items.length > 0 && t.sell_items[0].payment_due_days ? (

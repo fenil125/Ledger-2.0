@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Calculator } from "lucide-react";
+import { Save, Calculator, Plus } from "lucide-react";
 
 const ITEM_NAMES = [
   "Shoes HNY", "Shoes Black", "Sheet HNY", "Sheet Black", 
@@ -13,6 +14,7 @@ const ITEM_NAMES = [
 ];
 
 export default function SellingForm({ transaction, parties, onSubmit, isLoading }) {
+  const navigate = useNavigate();
   const [itemInputMode, setItemInputMode] = useState('dropdown'); // 'dropdown' or 'manual'
   const [formData, setFormData] = useState({
     transaction_type: 'selling',
@@ -23,6 +25,7 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
     count: '',
     weight_per_item: '',
     rate_per_item: '',
+    transportation_charges: 0,
     payment_due_days: '',
     payment_received: 0,
     balance_left: 0,
@@ -43,6 +46,7 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
         count: sellItem?.count || '',
         weight_per_item: sellItem?.weight_per_item || '',
         rate_per_item: sellItem?.rate_per_item || '',
+        transportation_charges: sellItem?.transportation_charges || transaction.transportation_charges || 0,
         payment_due_days: sellItem?.payment_due_days || '',
         payment_received: sellItem?.payment_received || 0,
         balance_left: sellItem?.balance_left || 0,
@@ -97,6 +101,7 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
       count: parseFloat(formData.count) || 0,
       weight_per_item: parseFloat(formData.weight_per_item) || 0,
       rate_per_item: parseFloat(formData.rate_per_item) || 0,
+      transportation_charges: parseFloat(formData.transportation_charges) || 0,
       payment_due_days: formData.payment_due_days ? parseInt(formData.payment_due_days) : null,
       payment_received: parseFloat(formData.payment_received) || 0,
       balance_left: parseFloat(formData.balance_left) || 0,
@@ -125,7 +130,19 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
               />
             </div>
             <div>
-              <Label className="text-slate-600">Party Name</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-slate-600 flex-1">Party Name</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate('/parties')}
+                  className="h-7 px-2"
+                  title="Add new party"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
               <Select value={formData.party_name} onValueChange={handlePartySelect}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select party" />
@@ -189,7 +206,6 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
                   setFormData({ ...formData, item_name: e.target.value });
                 }}
                 className="mt-2 bg-white"
-                required
               />
             </div>
             <div>
@@ -226,6 +242,17 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
                 onChange={(e) => setFormData({ ...formData, rate_per_item: e.target.value })}
                 className="mt-1 bg-white"
                 required
+              />
+            </div>
+            <div>
+              <Label className="text-purple-600">Transportation Charges (₹)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 500"
+                value={formData.transportation_charges}
+                onChange={(e) => setFormData({ ...formData, transportation_charges: e.target.value })}
+                className="mt-1 bg-white"
               />
             </div>
           </CardContent>
@@ -282,7 +309,7 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-white rounded-lg border border-green-100">
               <p className="text-sm text-green-600">Total Weight</p>
               <p className="text-2xl font-bold text-green-700">{formData.total_weight.toFixed(2)} kg</p>
@@ -291,22 +318,32 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
               </p>
             </div>
             <div className="p-4 bg-white rounded-lg border border-green-100">
-              <p className="text-sm text-green-600">Total Payment</p>
+              <p className="text-sm text-green-600">Base Payment</p>
               <p className="text-2xl font-bold text-green-700">₹{formData.total_payment.toLocaleString()}</p>
               <p className="text-xs text-slate-500 mt-1">
                 {formData.count} items × ₹{formData.rate_per_item}
               </p>
             </div>
-            <div className="p-4 bg-white rounded-lg border border-green-100">
-              <Label className="text-slate-600 text-sm">Notes</Label>
-              <Textarea
-                placeholder="Additional notes..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="mt-1 bg-white min-h-[60px]"
-                rows={2}
-              />
+            <div className="p-4 bg-white rounded-lg border border-orange-100">
+              <p className="text-sm text-orange-600">Transport</p>
+              <p className="text-2xl font-bold text-orange-700">₹{(parseFloat(formData.transportation_charges) || 0).toLocaleString()}</p>
+              <p className="text-xs text-slate-500 mt-1">Transportation charges</p>
             </div>
+            <div className="p-4 bg-white rounded-lg border border-emerald-200 ring-2 ring-emerald-300">
+              <p className="text-sm text-emerald-600 font-semibold">Total with Transport</p>
+              <p className="text-2xl font-bold text-emerald-700">₹{((parseFloat(formData.total_payment) || 0) + (parseFloat(formData.transportation_charges) || 0)).toLocaleString()}</p>
+              <p className="text-xs text-slate-500 mt-1">Payment + Transport</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <Label className="text-slate-600 text-sm">Notes</Label>
+            <Textarea
+              placeholder="Additional notes..."
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="mt-1 bg-white min-h-[60px]"
+              rows={2}
+            />
           </div>
         </CardContent>
       </Card>

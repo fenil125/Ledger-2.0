@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Calculator } from "lucide-react";
+import { Save, Calculator, Plus } from "lucide-react";
 
 export default function BuyingForm({ transaction, parties, onSubmit, isLoading }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     transaction_type: 'buying',
     date: new Date().toISOString().split('T')[0],
@@ -17,6 +19,7 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
     hny_weight: '',
     black_rate: '',
     black_weight: '',
+    transportation_charges: 0,
     total_weight: '',
     total_payment: '',
     notes: ''
@@ -66,6 +69,7 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
       hny_weight: parseFloat(formData.hny_weight) || 0,
       black_rate: parseFloat(formData.black_rate) || 0,
       black_weight: parseFloat(formData.black_weight) || 0,
+      transportation_charges: parseFloat(formData.transportation_charges) || 0,
       total_weight: parseFloat(formData.total_weight) || 0,
       total_payment: parseFloat(formData.total_payment) || 0
     });
@@ -91,7 +95,19 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
               />
             </div>
             <div>
-              <Label className="text-slate-600">Party Name</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-slate-600 flex-1">Party Name</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate('/parties')}
+                  className="h-7 px-2"
+                  title="Add new party"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
               <Select value={formData.party_name} onValueChange={handlePartySelect}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select or type party name" />
@@ -206,9 +222,27 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
                 <p className="text-2xl font-bold text-indigo-700">{formData.total_weight} kg</p>
               </div>
               <div className="p-4 bg-white rounded-lg border border-indigo-100">
-                <p className="text-sm text-indigo-600">Total Payment</p>
+                <p className="text-sm text-indigo-600">Base Payment</p>
                 <p className="text-2xl font-bold text-indigo-700">₹{formData.total_payment.toLocaleString()}</p>
               </div>
+            </div>
+            <div>
+              <Label className="text-slate-600">Transportation Charges (₹)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g., 500"
+                value={formData.transportation_charges}
+                onChange={(e) => setFormData({ ...formData, transportation_charges: e.target.value })}
+                className="mt-1 bg-white"
+              />
+            </div>
+            <div className="p-4 bg-white rounded-lg border-2 border-emerald-300 ring-2 ring-emerald-200">
+              <p className="text-sm text-emerald-600 font-semibold">Total with Transport</p>
+              <p className="text-3xl font-bold text-emerald-700">
+                ₹{((parseFloat(formData.total_payment) || 0) + (parseFloat(formData.transportation_charges) || 0)).toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">Payment + Transportation</p>
             </div>
             <div>
               <Label className="text-slate-600">Notes</Label>

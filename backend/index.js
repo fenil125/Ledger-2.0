@@ -78,12 +78,14 @@ function mapTransaction(tx) {
     hny_weight: tx.buyItems?.[0]?.hnyColor || 0,
     black_rate: tx.buyItems?.[0]?.blackRate || 0,
     black_weight: tx.buyItems?.[0]?.blackColor || 0,
+    transportation_charges: tx.buyItems?.[0]?.transportationCharges || tx.sellItems?.[0]?.transportationCharges || 0,
     buy_items: tx.buyItems?.map(item => ({
       id: item.id,
       hny_color: item.hnyColor,
       hny_rate: item.hnyRate,
       black_color: item.blackColor,
       black_rate: item.blackRate,
+      transportation_charges: item.transportationCharges || 0,
     })) || [],
     sell_items: tx.sellItems?.map(item => ({
       id: item.id,
@@ -93,6 +95,7 @@ function mapTransaction(tx) {
       rate_per_item: item.ratePerItem,
       total_weight: item.totalWeight,
       total_amount: item.totalAmount,
+      transportation_charges: item.transportationCharges || 0,
       payment_due_days: item.paymentDueDays,
       payment_received: item.paymentReceived,
       balance_left: item.balanceLeft,
@@ -504,6 +507,7 @@ app.post('/api/transactions', authenticateToken, upload.fields([
             hnyRate: parseFloat(data.hny_rate || 0),
             blackColor: parseFloat(data.black_weight || 0),
             blackRate: parseFloat(data.black_rate || 0),
+            transportationCharges: parseFloat(data.transportation_charges || 0),
           }]
         } : undefined,
         sellItems: type === 'sell' ? {
@@ -514,6 +518,7 @@ app.post('/api/transactions', authenticateToken, upload.fields([
             ratePerItem: parseFloat(data.rate_per_item || 0),
             totalWeight: parseFloat(data.total_weight || 0),
             totalAmount: parseFloat(data.total_payment || 0),
+            transportationCharges: parseFloat(data.transportation_charges || 0),
             paymentDueDays: data.payment_due_days ? parseInt(data.payment_due_days) : null,
             paymentReceived: parseFloat(data.payment_received || 0),
             balanceLeft: parseFloat(data.total_payment || 0) - parseFloat(data.payment_received || 0),
