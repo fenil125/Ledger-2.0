@@ -764,11 +764,12 @@ The project is configured for Netlify deployment via `netlify.toml`:
 
 ## 📝 Additional Documentation
 
-- [Backend Setup Guide](backend/README.md)
-- [Frontend Setup Guide](frontend/README.md)
-- [Backend Integration Details](BACKEND_INTEGRATION.md)
-- [Database Fix Notes](DATABASE_FIX.md)
-- [Neon Prisma Setup](NEON_PRISMA_SETUP.md)
+For detailed information about specific aspects of the system, refer to these comprehensive guides:
+
+- **[Database Setup Guide](DATABASE_SETUP.md)** - PostgreSQL configuration, Prisma schema, models, relationships, migrations, and seeding
+- **[Backend Setup Guide](BACKEND_SETUP.md)** - Express.js server, authentication, file uploads, API routes, and data mapping
+- **[Frontend Setup Guide](FRONTEND_SETUP.md)** - React + Vite, routing, state management, component architecture, and styling
+- **[System Integration Guide](INTEGRATION.md)** - How frontend, backend, and database connect and work together
 
 ---
 
