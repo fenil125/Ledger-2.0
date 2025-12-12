@@ -88,6 +88,8 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                   <SortIcon columnKey="total_payment" />
                 </div>
               </TableHead>
+              <TableHead className="font-semibold text-slate-700">Transport</TableHead>
+              <TableHead className="font-semibold text-slate-700">Total w/ Trans</TableHead>
               <TableHead className="font-semibold text-slate-700">Pay Due</TableHead>
               <TableHead className="font-semibold text-slate-700">Pay Recv</TableHead>
               <TableHead className="font-semibold text-slate-700">Balance</TableHead>
@@ -100,7 +102,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
             <AnimatePresence>
               {sortedTransactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showUser ? 15 : 14} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={showUser ? 17 : 16} className="text-center py-12 text-slate-500">
                     No transactions found
                   </TableCell>
                 </TableRow>
@@ -172,6 +174,18 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                     </TableCell>
                     <TableCell className="font-bold text-slate-800">
                       ₹{(transaction.total_payment || 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-sm">
+                      {transaction.transportation_charges ? (
+                        <span className="font-semibold text-blue-600">
+                          ₹{(transaction.transportation_charges || 0).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-bold text-green-700 text-sm">
+                      ₹{((transaction.total_payment || 0) + (transaction.transportation_charges || 0)).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-slate-600 text-xs">
                       {transaction.transaction_type === 'selling' && transaction.sell_items?.[0] ? (
