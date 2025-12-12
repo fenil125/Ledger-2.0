@@ -560,7 +560,14 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     // Check ownership - only creator or admin can update
     const existing = await prisma.transaction.findUnique({
       where: { id: req.params.id },
-      select: { createdBy: true, party: { select: { name: true } }, totalPayment: true, type: true }
+      select: { 
+        createdBy: true, 
+        party: { select: { name: true } }, 
+        totalPayment: true, 
+        type: true,
+        buyItems: true,
+        sellItems: true
+      }
     });
 
     if (!existing) {
@@ -572,6 +579,26 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     }
 
     const data = req.body;
+    
+    // Handle party update - find or create party
+    let partyId = null;
+    if (data.party_name) {
+      let party = await prisma.party.findFirst({
+        where: { name: data.party_name }
+      });
+      
+      if (!party) {
+        party = await prisma.party.create({
+          data: {
+            name: data.party_name,
+            phone: data.phone || '',
+            address: ''
+          }
+        });
+      }
+      partyId = party.id;
+    }
+    
     const updateData = {
       date: data.date ? new Date(data.date) : undefined,
       phone: data.phone,
@@ -579,6 +606,11 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
       totalPayment: data.total_payment ? parseFloat(data.total_payment) : undefined,
       notes: data.notes,
     };
+    
+    // Update party connection if party name changed
+    if (partyId) {
+      updateData.partyId = partyId;
+    }
     
     // Upload new images if provided
     if (req.files?.invoiceImage) {
@@ -590,6 +622,37 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     
     // Remove undefined values
     Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    
+    // Update buy items if this is a buying transaction
+    if (data.transaction_type === 'buying' && existing.buyItems.length > 0) {
+      await prisma.buyItem.updateMany({
+        where: { transactionId: req.params.id },
+        data: {
+          hnyRate: data.hny_rate ? parseFloat(data.hny_rate) : undefined,
+          hnyWeight: data.hny_weight ? parseFloat(data.hny_weight) : undefined,
+          blackRate: data.black_rate ? parseFloat(data.black_rate) : undefined,
+          blackWeight: data.black_weight ? parseFloat(data.black_weight) : undefined,
+          transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
+        }
+      });
+    }
+    
+    // Update sell items if this is a selling transaction
+    if (data.transaction_type === 'selling' && existing.sellItems.length > 0) {
+      await prisma.sellItem.updateMany({
+        where: { transactionId: req.params.id },
+        data: {
+          itemName: data.item_name,
+          count: data.count ? parseInt(data.count) : undefined,
+          weightPerItem: data.weight_per_item ? parseFloat(data.weight_per_item) : undefined,
+          ratePerItem: data.rate_per_item ? parseFloat(data.rate_per_item) : undefined,
+          transportationCharges: data.transportation_charges ? parseFloat(data.transportation_charges) : undefined,
+          paymentDueDays: data.payment_due_days ? parseInt(data.payment_due_days) : undefined,
+          paymentReceived: data.payment_received ? parseFloat(data.payment_received) : undefined,
+          balanceLeft: data.balance_left ? parseFloat(data.balance_left) : undefined,
+        }
+      });
+    }
     
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },

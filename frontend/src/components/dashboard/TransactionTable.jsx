@@ -19,16 +19,16 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
   const sortedTransactions = [...transactions].sort((a, b) => {
     const aVal = a[sortConfig.key];
     const bVal = b[sortConfig.key];
-    
+
     if (aVal === bVal) return 0;
-    
+
     const comparison = aVal < bVal ? -1 : 1;
     return sortConfig.direction === 'desc' ? -comparison : comparison;
   });
 
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
-    return sortConfig.direction === 'desc' 
+    return sortConfig.direction === 'desc'
       ? <ArrowDown className="w-3 h-3 text-blue-600" />
       : <ArrowUp className="w-3 h-3 text-blue-600" />;
   };
@@ -39,7 +39,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
-              <TableHead 
+              <TableHead
                 className="font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
                 onClick={() => handleSort('date')}
               >
@@ -48,7 +48,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                   <SortIcon columnKey="date" />
                 </div>
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
                 onClick={() => handleSort('transaction_type')}
               >
@@ -57,7 +57,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                   <SortIcon columnKey="transaction_type" />
                 </div>
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
                 onClick={() => handleSort('party_name')}
               >
@@ -70,7 +70,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
               <TableHead className="font-semibold text-slate-700">Item Details</TableHead>
               <TableHead className="font-semibold text-slate-700">HNY</TableHead>
               <TableHead className="font-semibold text-slate-700">Black</TableHead>
-              <TableHead 
+              <TableHead
                 className="font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
                 onClick={() => handleSort('total_weight')}
               >
@@ -79,7 +79,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                   <SortIcon columnKey="total_weight" />
                 </div>
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
                 onClick={() => handleSort('total_payment')}
               >
@@ -118,12 +118,11 @@ export default function TransactionTable({ transactions, onEdit, onDelete, showU
                       {transaction.date ? format(new Date(transaction.date), 'dd MMM yyyy') : '-'}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        className={`${
-                          transaction.transaction_type === 'buying' 
-                            ? 'bg-red-100 text-red-700 hover:bg-red-100' 
+                      <Badge
+                        className={`${transaction.transaction_type === 'buying'
+                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
                             : 'bg-green-100 text-green-700 hover:bg-green-100'
-                        } font-medium`}
+                          } font-medium`}
                       >
                         {transaction.transaction_type === 'buying' ? 'Buy' : 'Sell'}
                       </Badge>

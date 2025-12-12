@@ -8,14 +8,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Calculator, Plus } from "lucide-react";
 
-const ITEM_NAMES = [
+const DEFAULT_ITEM_NAMES = [
   "Shoes HNY", "Shoes Black", "Sheet HNY", "Sheet Black", 
   "Mixed Lot", "Premium Grade", "Standard Grade", "Reject"
 ];
 
+// Get custom item names from localStorage
+const getCustomItemNames = () => {
+  try {
+    const stored = localStorage.getItem('customItemNames');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+// Save custom item name to localStorage
+const saveCustomItemName = (itemName) => {
+  if (!itemName || itemName.trim() === '') return;
+  
+  const customItems = getCustomItemNames();
+  const trimmedName = itemName.trim();
+  
+  // Check if it's not already in default or custom list
+  if (!DEFAULT_ITEM_NAMES.includes(trimmedName) && !customItems.includes(trimmedName)) {
+    customItems.push(trimmedName);
+    localStorage.setItem('customItemNames', JSON.stringify(customItems));
+  }
+};
+
 export default function SellingForm({ transaction, parties, onSubmit, isLoading }) {
   const navigate = useNavigate();
   const [itemInputMode, setItemInputMode] = useState('dropdown'); // 'dropdown' or 'manual'
+  const [itemNames, setItemNames] = useState(() => [
+    ...DEFAULT_ITEM_NAMES,
+    ...getCustomItemNames()
+  ]);
   const [formData, setFormData] = useState({
     transaction_type: 'selling',
     date: new Date().toISOString().split('T')[0],
@@ -96,6 +124,13 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Save custom item name if it was manually entered and not in the list
+    if (formData.item_name && !itemNames.includes(formData.item_name)) {
+      saveCustomItemName(formData.item_name);
+      setItemNames(prev => [...prev, formData.item_name]);
+    }
+    
     onSubmit({
       ...formData,
       count: parseFloat(formData.count) || 0,
@@ -193,7 +228,7 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
                   <SelectValue placeholder="Select item" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ITEM_NAMES.map(item => (
+                  {itemNames.map(item => (
                     <SelectItem key={item} value={item}>{item}</SelectItem>
                   ))}
                 </SelectContent>

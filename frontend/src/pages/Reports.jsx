@@ -45,6 +45,7 @@ export default function Reports() {
     
     const totalBuyWeight = allBuying.reduce((sum, t) => sum + (t.total_weight || 0), 0);
     const totalSellWeight = allSelling.reduce((sum, t) => sum + (t.total_weight || 0), 0);
+    const netWeight = totalSellWeight - totalBuyWeight;
     
     const netProfit = totalSellAmount - totalBuyAmount;
     const avgBuyRate = totalBuyWeight > 0 ? totalBuyAmount / totalBuyWeight : 0;
@@ -88,6 +89,7 @@ export default function Reports() {
       netProfit,
       totalBuyWeight,
       totalSellWeight,
+      netWeight,
       totalTransactions: transactions.length,
       avgBuyRate,
       avgSellRate,
@@ -254,6 +256,26 @@ export default function Reports() {
               </div>
               <p className="text-xs font-medium text-teal-600 uppercase tracking-wide mb-1">Sell Weight</p>
               <p className="text-2xl font-bold text-teal-700">{kpis.totalSellWeight.toFixed(0)} kg</p>
+            </CardContent>
+          </Card>
+
+          {/* Net Weight */}
+          <Card className={`border-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-200 bg-gradient-to-br from-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-50 to-white`}>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`p-2 bg-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-100 rounded-lg`}>
+                  <Package className={`w-5 h-5 text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-600`} />
+                </div>
+              </div>
+              <p className={`text-xs font-medium text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-600 uppercase tracking-wide mb-1`}>
+                Net Weight
+              </p>
+              <p className={`text-2xl font-bold text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-700`}>
+                {kpis.netWeight >= 0 ? '+' : ''}{kpis.netWeight.toFixed(0)} kg
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {kpis.netWeight >= 0 ? 'Inventory Out' : 'Inventory In'}
+              </p>
             </CardContent>
           </Card>
 
