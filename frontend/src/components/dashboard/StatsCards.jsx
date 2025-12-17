@@ -1,21 +1,29 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Scale, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, Scale, Wallet, Banknote } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StatsCards({ transactions }) {
   const buyingTotal = transactions
     .filter(t => t.transaction_type === 'buying')
     .reduce((sum, t) => sum + (t.total_payment || 0), 0);
-  
+
   const sellingTotal = transactions
     .filter(t => t.transaction_type === 'selling')
     .reduce((sum, t) => sum + (t.total_payment || 0), 0);
-  
+
   const totalWeight = transactions
     .reduce((sum, t) => sum + (t.total_weight || 0), 0);
-  
+
   const balance = sellingTotal - buyingTotal;
+
+  // Calculate total payment received from selling transactions
+  const paymentReceived = transactions
+    .filter(t => t.transaction_type === 'selling')
+    .reduce((sum, t) => {
+      const received = t.sell_items?.[0]?.payment_received || 0;
+      return sum + received;
+    }, 0);
 
   const stats = [
     {
@@ -33,6 +41,14 @@ export default function StatsCards({ transactions }) {
       color: "bg-green-500",
       lightColor: "bg-green-50",
       textColor: "text-green-600"
+    },
+    {
+      title: "Payment Received",
+      value: `₹${paymentReceived.toLocaleString()}`,
+      icon: Banknote,
+      color: "bg-cyan-500",
+      lightColor: "bg-cyan-50",
+      textColor: "text-cyan-600"
     },
     {
       title: "Total Weight",
@@ -54,7 +70,7 @@ export default function StatsCards({ transactions }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       {stats.map((stat, index) => (
         <motion.div
           key={stat.title}
@@ -62,17 +78,17 @@ export default function StatsCards({ transactions }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
         >
-          <Card className={`p-5 ${stat.lightColor} border-0 shadow-sm hover:shadow-md transition-all duration-300`}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{stat.title}</p>
-                <p className={`text-2xl font-bold mt-1 ${stat.textColor}`}>{stat.value}</p>
+          <Card className={`p-3 sm:p-4 lg:p-5 ${stat.lightColor} border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide truncate">{stat.title}</p>
+                <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-1 ${stat.textColor} truncate`}>{stat.value}</p>
                 {stat.subtitle && (
-                  <p className={`text-xs mt-1 ${stat.textColor} opacity-70`}>{stat.subtitle}</p>
+                  <p className={`text-[10px] sm:text-xs mt-1 ${stat.textColor} opacity-70`}>{stat.subtitle}</p>
                 )}
               </div>
-              <div className={`p-2.5 rounded-xl ${stat.color}`}>
-                <stat.icon className="w-5 h-5 text-white" />
+              <div className={`p-1.5 sm:p-2 lg:p-2.5 rounded-lg sm:rounded-xl ${stat.color} flex-shrink-0`}>
+                <stat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
             </div>
           </Card>

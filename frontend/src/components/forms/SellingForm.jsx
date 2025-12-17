@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Calculator, Plus } from "lucide-react";
 
 const DEFAULT_ITEM_NAMES = [
-  "Shoes HNY", "Shoes Black", "Sheet HNY", "Sheet Black", 
+  "Shoes HNY", "Shoes Black", "Sheet HNY", "Sheet Black",
   "Mixed Lot", "Premium Grade", "Standard Grade", "Reject"
 ];
 
@@ -26,10 +26,10 @@ const getCustomItemNames = () => {
 // Save custom item name to localStorage
 const saveCustomItemName = (itemName) => {
   if (!itemName || itemName.trim() === '') return;
-  
+
   const customItems = getCustomItemNames();
   const trimmedName = itemName.trim();
-  
+
   // Check if it's not already in default or custom list
   if (!DEFAULT_ITEM_NAMES.includes(trimmedName) && !customItems.includes(trimmedName)) {
     customItems.push(trimmedName);
@@ -124,13 +124,13 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Save custom item name if it was manually entered and not in the list
     if (formData.item_name && !itemNames.includes(formData.item_name)) {
       saveCustomItemName(formData.item_name);
       setItemNames(prev => [...prev, formData.item_name]);
     }
-    
+
     onSubmit({
       ...formData,
       count: parseFloat(formData.count) || 0,
@@ -217,8 +217,8 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
           <CardContent className="space-y-4">
             <div>
               <Label className="text-purple-600">Item Name</Label>
-              <Select 
-                value={itemInputMode === 'dropdown' ? formData.item_name : ''} 
+              <Select
+                value={itemInputMode === 'dropdown' ? formData.item_name : ''}
                 onValueChange={(v) => {
                   setItemInputMode('dropdown');
                   setFormData({ ...formData, item_name: v });
@@ -344,30 +344,30 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-white rounded-lg border border-green-100">
-              <p className="text-sm text-green-600">Total Weight</p>
-              <p className="text-2xl font-bold text-green-700">{formData.total_weight.toFixed(2)} kg</p>
-              <p className="text-xs text-slate-500 mt-1">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-3 sm:p-4 bg-white rounded-lg border border-green-100">
+              <p className="text-xs sm:text-sm text-green-600">Total Weight</p>
+              <p className="text-lg sm:text-2xl font-bold text-green-700 truncate">{formData.total_weight.toFixed(2)} kg</p>
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">
                 {formData.count} × {formData.weight_per_item} kg
               </p>
             </div>
-            <div className="p-4 bg-white rounded-lg border border-green-100">
-              <p className="text-sm text-green-600">Base Payment</p>
-              <p className="text-2xl font-bold text-green-700">₹{formData.total_payment.toLocaleString()}</p>
-              <p className="text-xs text-slate-500 mt-1">
+            <div className="p-3 sm:p-4 bg-white rounded-lg border border-green-100">
+              <p className="text-xs sm:text-sm text-green-600">Base Payment</p>
+              <p className="text-lg sm:text-2xl font-bold text-green-700 truncate">₹{formData.total_payment.toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1 truncate">
                 {formData.count} items × ₹{formData.rate_per_item}
               </p>
             </div>
-            <div className="p-4 bg-white rounded-lg border border-orange-100">
-              <p className="text-sm text-orange-600">Transport</p>
-              <p className="text-2xl font-bold text-orange-700">₹{(parseFloat(formData.transportation_charges) || 0).toLocaleString()}</p>
-              <p className="text-xs text-slate-500 mt-1">Transportation charges</p>
+            <div className="p-3 sm:p-4 bg-white rounded-lg border border-orange-100">
+              <p className="text-xs sm:text-sm text-orange-600">Transport</p>
+              <p className="text-lg sm:text-2xl font-bold text-orange-700 truncate">₹{(parseFloat(formData.transportation_charges) || 0).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Transportation charges</p>
             </div>
-            <div className="p-4 bg-white rounded-lg border border-emerald-200 ring-2 ring-emerald-300">
-              <p className="text-sm text-emerald-600 font-semibold">Total with Transport</p>
-              <p className="text-2xl font-bold text-emerald-700">₹{((parseFloat(formData.total_payment) || 0) + (parseFloat(formData.transportation_charges) || 0)).toLocaleString()}</p>
-              <p className="text-xs text-slate-500 mt-1">Payment + Transport</p>
+            <div className="p-3 sm:p-4 bg-white rounded-lg border border-emerald-200 ring-2 ring-emerald-300">
+              <p className="text-xs sm:text-sm text-emerald-600 font-semibold">Total with Transport</p>
+              <p className="text-lg sm:text-2xl font-bold text-emerald-700 truncate">₹{((parseFloat(formData.total_payment) || 0) + (parseFloat(formData.transportation_charges) || 0)).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Payment + Transport</p>
             </div>
           </div>
           <div className="mt-4">
@@ -384,8 +384,8 @@ export default function SellingForm({ transaction, parties, onSubmit, isLoading 
       </Card>
 
       <div className="flex justify-end">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={isLoading}
           className="bg-green-600 hover:bg-green-700 px-8"
         >
