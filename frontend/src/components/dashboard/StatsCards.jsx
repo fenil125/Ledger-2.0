@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Scale, Wallet, Banknote } from "lucide-react";
+import { TrendingUp, TrendingDown, Scale, Wallet, Banknote, Receipt } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StatsCards({ transactions }) {
@@ -23,6 +23,14 @@ export default function StatsCards({ transactions }) {
     .reduce((sum, t) => {
       const received = t.sell_items?.[0]?.payment_received || 0;
       return sum + received;
+    }, 0);
+
+  // Calculate total balance left (pending) from selling transactions
+  const balanceLeft = transactions
+    .filter(t => t.transaction_type === 'selling')
+    .reduce((sum, t) => {
+      const left = t.sell_items?.[0]?.balance_left || 0;
+      return sum + left;
     }, 0);
 
   const stats = [
@@ -51,6 +59,15 @@ export default function StatsCards({ transactions }) {
       textColor: "text-cyan-600"
     },
     {
+      title: "Balance Left",
+      value: `₹${balanceLeft.toLocaleString()}`,
+      icon: Receipt,
+      color: balanceLeft > 0 ? "bg-orange-500" : "bg-green-500",
+      lightColor: balanceLeft > 0 ? "bg-orange-50" : "bg-green-50",
+      textColor: balanceLeft > 0 ? "text-orange-600" : "text-green-600",
+      subtitle: balanceLeft > 0 ? "Pending" : "Cleared"
+    },
+    {
       title: "Total Weight",
       value: `${totalWeight.toLocaleString()} kg`,
       icon: Scale,
@@ -70,7 +87,7 @@ export default function StatsCards({ transactions }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
       {stats.map((stat, index) => (
         <motion.div
           key={stat.title}
@@ -78,11 +95,11 @@ export default function StatsCards({ transactions }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
         >
-          <Card className={`p-3 sm:p-4 lg:p-5 ${stat.lightColor} border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden`}>
+          <Card className={`p-3 sm:p-4 lg:p-5 ${stat.lightColor} border-0 shadow-sm hover:shadow-md transition-all duration-300`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide truncate">{stat.title}</p>
-                <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-1 ${stat.textColor} truncate`}>{stat.value}</p>
+                <p className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide">{stat.title}</p>
+                <p className={`text-sm sm:text-lg lg:text-xl font-bold mt-1 ${stat.textColor} break-all`}>{stat.value}</p>
                 {stat.subtitle && (
                   <p className={`text-[10px] sm:text-xs mt-1 ${stat.textColor} opacity-70`}>{stat.subtitle}</p>
                 )}
