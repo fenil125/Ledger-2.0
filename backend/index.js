@@ -118,9 +118,9 @@ async function notifyAdmin(action, details, userId) {
     });
 
     const message = `${user?.name || user?.email || 'Unknown'} ${action} ${details}`;
-    
+
     // Store notification for each admin
-    await Promise.all(admins.map(admin => 
+    await Promise.all(admins.map(admin =>
       prisma.notification.create({
         data: {
           userId: admin.id,
@@ -128,7 +128,7 @@ async function notifyAdmin(action, details, userId) {
           type: action.includes('created') ? 'create' : action.includes('updated') ? 'update' : 'delete',
           isRead: false,
         }
-      }).catch(() => {}) // Ignore errors if notification table doesn't exist yet
+      }).catch(() => { }) // Ignore errors if notification table doesn't exist yet
     ));
 
     console.log(`[ADMIN NOTIFICATION] ${message}`);
@@ -213,7 +213,7 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
 app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
   try {
     const notification = await prisma.notification.update({
-      where: { 
+      where: {
         id: req.params.id,
         userId: req.user.id, // Ensure user can only mark their own notifications
       },
@@ -230,7 +230,7 @@ app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
 app.put('/api/notifications/mark-all-read', authenticateToken, async (req, res) => {
   try {
     await prisma.notification.updateMany({
-      where: { 
+      where: {
         userId: req.user.id,
         isRead: false,
       },
@@ -251,7 +251,7 @@ app.get('/api/notifications/unread-count', authenticateToken, async (req, res) =
     }
 
     const count = await prisma.notification.count({
-      where: { 
+      where: {
         userId: req.user.id,
         isRead: false,
       },
@@ -268,16 +268,16 @@ app.post('/api/users/register', upload.single('profileImage'), async (req, res) 
   try {
     const { email, name, password, role } = req.body;
     let profileImage = null;
-    
+
     if (req.file) {
       profileImage = await uploadToCloudinary(req.file, 'users');
     }
-    
+
     const user = await prisma.user.create({
       data: { email, name, password, role: role || 'user', profileImage },
       select: { id: true, email: true, name: true, role: true, profileImage: true, createdAt: true },
     });
-    
+
     res.json(user);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -290,7 +290,7 @@ app.get('/api/users/:id', async (req, res) => {
       where: { id: req.params.id },
       select: { id: true, email: true, name: true, role: true, profileImage: true, isActive: true, createdAt: true },
     });
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (err) {
@@ -305,7 +305,7 @@ app.get('/api/parties', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: { creator: { select: { email: true, name: true } } },
     });
-    
+
     res.json(parties.map(p => ({
       id: p.id,
       name: p.name,
@@ -327,19 +327,19 @@ app.post('/api/parties', authenticateToken, upload.single('image'), async (req, 
   try {
     const { name, phone, email, address, notes, createdBy } = req.body;
     let image = null;
-    
+
     if (req.file) {
       image = await uploadToCloudinary(req.file, 'parties');
     }
-    
+
     // Default user if not provided
     const userId = createdBy || (await prisma.user.findFirst())?.id;
     if (!userId) return res.status(400).json({ error: 'No user found. Create a user first.' });
-    
+
     const party = await prisma.party.create({
       data: { name, phone, email, address, notes, image, createdBy: userId },
     });
-    
+
     res.json(party);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -350,17 +350,17 @@ app.put('/api/parties/:id', authenticateToken, upload.single('image'), async (re
   try {
     const { name, phone, email, address, notes, isActive } = req.body;
     const data = { name, phone, email, address, notes };
-    
+
     if (isActive !== undefined) data.isActive = isActive === 'true' || isActive === true;
     if (req.file) {
       data.image = await uploadToCloudinary(req.file, 'parties');
     }
-    
+
     const party = await prisma.party.update({
       where: { id: req.params.id },
       data,
     });
-    
+
     res.json(party);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -376,12 +376,264 @@ app.delete('/api/parties/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Get party details with all transactions and payment summary
+app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
+  try {
+    const party = await prisma.party.findUnique({
+      where: { id: req.params.id },
+      include: {
+        creator: { select: { email: true, name: true } },
+        transactions: {
+          include: {
+            buyItems: true,
+            sellItems: {
+              include: {
+                payments: {
+                  orderBy: { paymentDate: 'desc' }
+                }
+              }
+            },
+            creator: { select: { email: true, name: true } }
+          },
+          orderBy: { date: 'desc' }
+        }
+      }
+    });
+
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+
+    // Calculate summary
+    const buyingTotal = party.transactions
+      .filter(t => t.type === 'buy')
+      .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
+
+    const sellingTotal = party.transactions
+      .filter(t => t.type === 'sell')
+      .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
+
+    // Calculate total received from all payments
+    const allPayments = party.transactions
+      .filter(t => t.type === 'sell')
+      .flatMap(t => t.sellItems || [])
+      .flatMap(si => si.payments || []);
+
+    const totalReceived = allPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Map transactions for frontend
+    const mappedTransactions = party.transactions.map(t => ({
+      id: t.id,
+      type: t.type,
+      transaction_type: t.type === 'buy' ? 'buying' : 'selling',
+      date: t.date,
+      total_weight: t.totalWeight,
+      total_payment: t.totalPayment,
+      notes: t.notes,
+      created_by: t.creator?.email || t.creator?.name || 'Unknown',
+      buy_items: t.buyItems?.map(item => ({
+        id: item.id,
+        hny_weight: item.hnyColor,
+        hny_rate: item.hnyRate,
+        black_weight: item.blackColor,
+        black_rate: item.blackRate,
+        transportation_charges: item.transportationCharges || 0,
+      })) || [],
+      sell_items: t.sellItems?.map(item => {
+        // Calculate payment received from individual payments
+        const paymentsTotal = (item.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        return {
+          id: item.id,
+          item_name: item.itemName,
+          count: item.count,
+          weight_per_item: item.weightPerItem,
+          rate_per_item: item.ratePerItem,
+          total_weight: item.totalWeight,
+          total_amount: item.totalAmount,
+          transportation_charges: item.transportationCharges || 0,
+          payment_due_days: item.paymentDueDays,
+          payment_received: paymentsTotal,
+          balance_left: item.totalAmount - paymentsTotal,
+          payments: (item.payments || []).map(p => ({
+            id: p.id,
+            amount: p.amount,
+            payment_date: p.paymentDate,
+            payment_method: p.paymentMethod,
+            notes: p.notes,
+            created_at: p.createdAt
+          }))
+        };
+      }) || [],
+    }));
+
+    res.json({
+      id: party.id,
+      name: party.name,
+      phone: party.phone,
+      email: party.email,
+      address: party.address,
+      notes: party.notes,
+      image: party.image,
+      is_active: party.isActive,
+      created_at: party.createdAt,
+      created_by: party.creator?.email || 'system',
+      transactions: mappedTransactions,
+      summary: {
+        buying_total: buyingTotal,
+        selling_total: sellingTotal,
+        total_received: totalReceived,
+        balance_owed: sellingTotal - totalReceived,
+        transaction_count: party.transactions.length,
+        last_payment: allPayments.length > 0 ? allPayments[0].paymentDate : null
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ PAYMENT ROUTES ============
+// Create a new payment record
+app.post('/api/payments', authenticateToken, async (req, res) => {
+  try {
+    const { sellItemId, amount, paymentDate, paymentMethod, notes } = req.body;
+
+    if (!sellItemId || !amount || !paymentDate) {
+      return res.status(400).json({ error: 'sellItemId, amount, and paymentDate are required' });
+    }
+
+    // Verify sellItem exists
+    const sellItem = await prisma.sellItem.findUnique({
+      where: { id: sellItemId },
+      include: { transaction: { include: { party: true } } }
+    });
+
+    if (!sellItem) {
+      return res.status(404).json({ error: 'Sell item not found' });
+    }
+
+    // Create payment
+    const payment = await prisma.payment.create({
+      data: {
+        sellItemId,
+        amount: parseFloat(amount),
+        paymentDate: new Date(paymentDate),
+        paymentMethod: paymentMethod || null,
+        notes: notes || null,
+        createdBy: req.user.id
+      }
+    });
+
+    // Calculate new totals from all payments
+    const payments = await prisma.payment.aggregate({
+      where: { sellItemId },
+      _sum: { amount: true }
+    });
+
+    const totalReceived = payments._sum.amount || 0;
+
+    // Update sellItem's calculated fields for backward compatibility
+    await prisma.sellItem.update({
+      where: { id: sellItemId },
+      data: {
+        paymentReceived: totalReceived,
+        balanceLeft: sellItem.totalAmount - totalReceived
+      }
+    });
+
+    // Notify admins
+    await notifyAdmin(
+      'recorded payment',
+      `₹${amount} for ${sellItem.transaction?.party?.name || 'Unknown'}`,
+      req.user.id
+    );
+
+    res.json({
+      ...payment,
+      payment_date: payment.paymentDate,
+      payment_method: payment.paymentMethod,
+      updated_balance: sellItem.totalAmount - totalReceived
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get payments for a sell item
+app.get('/api/payments', authenticateToken, async (req, res) => {
+  try {
+    const { sellItemId } = req.query;
+
+    if (!sellItemId) {
+      return res.status(400).json({ error: 'sellItemId is required' });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: { sellItemId },
+      orderBy: { paymentDate: 'desc' }
+    });
+
+    res.json(payments.map(p => ({
+      id: p.id,
+      amount: p.amount,
+      payment_date: p.paymentDate,
+      payment_method: p.paymentMethod,
+      notes: p.notes,
+      created_at: p.createdAt
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a payment (admin only)
+app.delete('/api/payments/:id', authenticateToken, async (req, res) => {
+  try {
+    // Only admins can delete payments for audit safety
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete payment records' });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.id },
+      include: { sellItem: true }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    await prisma.payment.delete({ where: { id: req.params.id } });
+
+    // Recalculate totals
+    const payments = await prisma.payment.aggregate({
+      where: { sellItemId: payment.sellItemId },
+      _sum: { amount: true }
+    });
+
+    const totalReceived = payments._sum.amount || 0;
+
+    // Update sellItem
+    await prisma.sellItem.update({
+      where: { id: payment.sellItemId },
+      data: {
+        paymentReceived: totalReceived,
+        balanceLeft: payment.sellItem.totalAmount - totalReceived
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ============ TRANSACTION ROUTES ============
 app.get('/api/transactions', authenticateToken, async (req, res) => {
   try {
     const { type, startDate, endDate, partyId } = req.query;
     const where = {};
-    
+
     if (type && type !== 'all') where.type = type;
     if (partyId && partyId !== 'all') where.partyId = partyId;
     if (startDate || endDate) {
@@ -389,7 +641,7 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
     }
-    
+
     const transactions = await prisma.transaction.findMany({
       where,
       include: {
@@ -406,7 +658,7 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
       },
       orderBy: { createdAt: 'desc' },
     });
-    
+
     res.json(transactions.map(mapTransaction));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -417,9 +669,9 @@ app.get('/api/transactions/:id', authenticateToken, async (req, res) => {
   try {
     const transaction = await prisma.transaction.findUnique({
       where: { id: req.params.id },
-      include: { 
-        party: true, 
-        buyItems: true, 
+      include: {
+        party: true,
+        buyItems: true,
         sellItems: true,
         creator: {
           select: {
@@ -430,7 +682,7 @@ app.get('/api/transactions/:id', authenticateToken, async (req, res) => {
         },
       },
     });
-    
+
     if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
     res.json(mapTransaction(transaction));
   } catch (err) {
@@ -444,12 +696,12 @@ app.post('/api/transactions', authenticateToken, upload.fields([
 ]), async (req, res) => {
   try {
     const data = req.body;
-    
+
     // Map type
     let type = data.type || data.transaction_type;
     if (type === 'buying') type = 'buy';
     if (type === 'selling') type = 'sell';
-    
+
     // Find or create party
     let partyId = data.party_id;
     if (!partyId && (data.party_name || data.phone)) {
@@ -461,7 +713,7 @@ app.post('/api/transactions', authenticateToken, upload.fields([
           ]
         }
       });
-      
+
       if (existingParty) {
         partyId = existingParty.id;
       } else {
@@ -478,7 +730,7 @@ app.post('/api/transactions', authenticateToken, upload.fields([
         partyId = newParty.id;
       }
     }
-    
+
     // Upload images
     let invoiceImage = null, receiptImage = null;
     if (req.files?.invoiceImage) {
@@ -487,7 +739,7 @@ app.post('/api/transactions', authenticateToken, upload.fields([
     if (req.files?.receiptImage) {
       receiptImage = await uploadToCloudinary(req.files.receiptImage[0], 'receipts');
     }
-    
+
     // Create transaction with items
     const transaction = await prisma.transaction.create({
       data: {
@@ -525,9 +777,9 @@ app.post('/api/transactions', authenticateToken, upload.fields([
           }]
         } : undefined,
       },
-      include: { 
-        party: true, 
-        buyItems: true, 
+      include: {
+        party: true,
+        buyItems: true,
         sellItems: true,
         creator: {
           select: {
@@ -538,14 +790,14 @@ app.post('/api/transactions', authenticateToken, upload.fields([
         },
       },
     });
-    
+
     // Notify admins about new transaction
     await notifyAdmin(
       'created',
       `a ${type} transaction for ${transaction.party?.name || 'Unknown'} (₹${transaction.totalPayment})`,
       req.user.id
     );
-    
+
     res.json(mapTransaction(transaction));
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -560,10 +812,10 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     // Check ownership - only creator or admin can update
     const existing = await prisma.transaction.findUnique({
       where: { id: req.params.id },
-      select: { 
-        createdBy: true, 
-        party: { select: { name: true } }, 
-        totalPayment: true, 
+      select: {
+        createdBy: true,
+        party: { select: { name: true } },
+        totalPayment: true,
         type: true,
         buyItems: true,
         sellItems: true
@@ -579,14 +831,14 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     }
 
     const data = req.body;
-    
+
     // Handle party update - find or create party
     let partyId = null;
     if (data.party_name) {
       let party = await prisma.party.findFirst({
         where: { name: data.party_name }
       });
-      
+
       if (!party) {
         party = await prisma.party.create({
           data: {
@@ -598,7 +850,7 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
       }
       partyId = party.id;
     }
-    
+
     const updateData = {
       date: data.date ? new Date(data.date) : undefined,
       phone: data.phone,
@@ -606,12 +858,12 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
       totalPayment: data.total_payment ? parseFloat(data.total_payment) : undefined,
       notes: data.notes,
     };
-    
+
     // Update party connection if party name changed
     if (partyId) {
       updateData.partyId = partyId;
     }
-    
+
     // Upload new images if provided
     if (req.files?.invoiceImage) {
       updateData.invoiceImage = await uploadToCloudinary(req.files.invoiceImage[0], 'invoices');
@@ -619,10 +871,10 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
     if (req.files?.receiptImage) {
       updateData.receiptImage = await uploadToCloudinary(req.files.receiptImage[0], 'receipts');
     }
-    
+
     // Remove undefined values
     Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
-    
+
     // Update buy items if this is a buying transaction
     if (data.transaction_type === 'buying' && existing.buyItems.length > 0) {
       const buyItemUpdate = {
@@ -634,7 +886,7 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
       };
       // Remove undefined values
       Object.keys(buyItemUpdate).forEach(key => buyItemUpdate[key] === undefined && delete buyItemUpdate[key]);
-      
+
       if (Object.keys(buyItemUpdate).length > 0) {
         await prisma.buyItem.updateMany({
           where: { transactionId: req.params.id },
@@ -642,13 +894,13 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
         });
       }
     }
-    
+
     // Update sell items if this is a selling transaction
     if (data.transaction_type === 'selling' && existing.sellItems.length > 0) {
       const count = data.count ? parseFloat(data.count) : undefined;
       const weightPerItem = data.weight_per_item ? parseFloat(data.weight_per_item) : undefined;
       const ratePerItem = data.rate_per_item ? parseFloat(data.rate_per_item) : undefined;
-      
+
       const sellItemUpdate = {
         itemName: data.item_name || undefined,
         count: count,
@@ -663,7 +915,7 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
       };
       // Remove undefined values
       Object.keys(sellItemUpdate).forEach(key => sellItemUpdate[key] === undefined && delete sellItemUpdate[key]);
-      
+
       if (Object.keys(sellItemUpdate).length > 0) {
         await prisma.sellItem.updateMany({
           where: { transactionId: req.params.id },
@@ -671,13 +923,13 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
         });
       }
     }
-    
+
     const transaction = await prisma.transaction.update({
       where: { id: req.params.id },
       data: updateData,
-      include: { 
-        party: true, 
-        buyItems: true, 
+      include: {
+        party: true,
+        buyItems: true,
         sellItems: true,
         creator: {
           select: {
@@ -688,7 +940,7 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
         },
       },
     });
-    
+
     // Notify admins about transaction update (only if not updated by admin)
     if (req.user.role !== 'admin') {
       await notifyAdmin(
@@ -697,7 +949,7 @@ app.put('/api/transactions/:id', authenticateToken, upload.fields([
         req.user.id
       );
     }
-    
+
     res.json(mapTransaction(transaction));
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -721,7 +973,7 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
     }
 
     await prisma.transaction.delete({ where: { id: req.params.id } });
-    
+
     // Notify admins about transaction deletion (only if not deleted by admin)
     if (req.user.role !== 'admin') {
       await notifyAdmin(
@@ -741,26 +993,26 @@ app.get('/api/reports/summary', authenticateToken, async (req, res) => {
   try {
     const { type, startDate, endDate } = req.query;
     const where = {};
-    
+
     if (type && type !== 'all') where.type = type;
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
     }
-    
+
     const buyStats = await prisma.transaction.aggregate({
       where: { ...where, type: 'buy' },
       _count: { id: true },
       _sum: { totalWeight: true, totalPayment: true },
     });
-    
+
     const sellStats = await prisma.transaction.aggregate({
       where: { ...where, type: 'sell' },
       _count: { id: true },
       _sum: { totalWeight: true, totalPayment: true },
     });
-    
+
     res.json({
       buying: {
         count: buyStats._count.id,
@@ -781,16 +1033,16 @@ app.get('/api/reports/summary', authenticateToken, async (req, res) => {
 app.post('/api/reports/generate', authenticateToken, async (req, res) => {
   try {
     const { name, type, startDate, endDate, generatedBy } = req.body;
-    
+
     const where = {};
     if (startDate) where.date = { gte: new Date(startDate) };
     if (endDate) where.date = { ...where.date, lte: new Date(endDate) };
-    
+
     const transactions = await prisma.transaction.findMany({
       where,
       include: { party: true, buyItems: true, sellItems: true },
     });
-    
+
     const report = await prisma.report.create({
       data: {
         name,
@@ -801,7 +1053,7 @@ app.post('/api/reports/generate', authenticateToken, async (req, res) => {
         generatedBy,
       }
     });
-    
+
     res.json(report);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -827,12 +1079,12 @@ app.get('/api/export', authenticateToken, async (req, res) => {
       include: { party: true },
       orderBy: { date: 'desc' },
     });
-    
+
     let csv = 'Date,Type,Party,Phone,Weight,Payment\n';
     transactions.forEach(t => {
       csv += `${t.date.toISOString().split('T')[0]},${t.type},${t.party?.name || 'Unknown'},${t.phone},${t.totalWeight},${t.totalPayment}\n`;
     });
-    
+
     res.header('Content-Type', 'text/csv');
     res.attachment('transactions.csv');
     res.send(csv);

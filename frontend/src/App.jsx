@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import Layout from './Layout';
 import Dashboard from './pages/Dashboard';
 import Parties from './pages/Parties';
+import PartyDetail from './pages/PartyDetail';
 import Reports from './pages/Reports';
 import Admin from './pages/Admin';
 import Notifications from './pages/Notifications';
@@ -60,6 +61,13 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Parties />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/parties/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PartyDetail />
                 </Layout>
               </ProtectedRoute>
             } />

@@ -14,19 +14,19 @@ const getAuthHeaders = () => {
 const handleResponse = async (response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText }));
-    
+
     if (response.status === 401) {
       // Unauthorized - invalid/expired token
       localStorage.removeItem('token');
       window.location.href = '/login';
       throw new Error('Session expired. Please login again.');
     }
-    
+
     if (response.status === 403) {
       // Forbidden - valid token but insufficient permissions
       throw new Error(error.error || error.message || 'You do not have permission to perform this action');
     }
-    
+
     throw new Error(error.error || error.message || 'API request failed');
   }
   return response.json();
@@ -41,7 +41,7 @@ class EntityClient {
   async list(sort = null) {
     const url = new URL(`${API_BASE_URL}${this.endpoint}`);
     if (sort) url.searchParams.append('sort', sort);
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: getAuthHeaders()
@@ -90,22 +90,49 @@ export const base44 = {
     Party: new EntityClient('Party', '/api/parties'),
     User: new EntityClient('User', '/api/users'),
   },
-  
+
   async exportCSV() {
     const response = await fetch(`${API_BASE_URL}/api/export/csv`, {
       method: 'GET',
       headers: getAuthHeaders()
     });
-    
+
     if (!response.ok) {
       throw new Error('Export failed');
     }
-    
+
     return response.blob();
   },
-  
+
   async getSummary() {
     const response = await fetch(`${API_BASE_URL}/api/reports/summary`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  // Party detail with transactions and payments
+  async getPartyDetails(partyId) {
+    const response = await fetch(`${API_BASE_URL}/api/parties/${partyId}/details`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  // Payment endpoints
+  async createPayment(data) {
+    const response = await fetch(`${API_BASE_URL}/api/payments`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  async getPayments(sellItemId) {
+    const response = await fetch(`${API_BASE_URL}/api/payments?sellItemId=${sellItemId}`, {
       method: 'GET',
       headers: getAuthHeaders()
     });

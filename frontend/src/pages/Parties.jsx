@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Plus, Search, Phone, Mail, MapPin, Pencil, Trash2, User, Building2 } fr
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Parties() {
+  const navigate = useNavigate();
   const [showDialog, setShowDialog] = useState(false);
   const [editingParty, setEditingParty] = useState(null);
   const [deleteParty, setDeleteParty] = useState(null);
@@ -104,7 +106,7 @@ export default function Parties() {
     return { buying, selling, count: partyTx.length };
   };
 
-  const filteredParties = parties.filter(party => 
+  const filteredParties = parties.filter(party =>
     party.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     party.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -113,7 +115,7 @@ export default function Parties() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
@@ -122,7 +124,7 @@ export default function Parties() {
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Parties</h1>
             <p className="text-slate-500 mt-1">Manage your contacts and phone book</p>
           </div>
-          <Button 
+          <Button
             onClick={() => {
               resetForm();
               setShowDialog(true);
@@ -158,7 +160,10 @@ export default function Parties() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="group hover:shadow-lg transition-all duration-300 border-slate-200">
+                  <Card
+                    className="group hover:shadow-lg transition-all duration-300 border-slate-200 cursor-pointer"
+                    onClick={() => navigate(`/parties/${party.id}`)}
+                  >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -177,7 +182,7 @@ export default function Parties() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-slate-400 hover:text-purple-600 hover:bg-purple-50"
-                            onClick={() => handleEdit(party)}
+                            onClick={(e) => { e.stopPropagation(); handleEdit(party); }}
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
@@ -185,7 +190,7 @@ export default function Parties() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => setDeleteParty(party)}
+                            onClick={(e) => { e.stopPropagation(); setDeleteParty(party); }}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -221,11 +226,11 @@ export default function Parties() {
                         </div>
                         <div>
                           <p className="text-xs text-red-500">Buying</p>
-                          <p className="font-semibold text-red-600">₹{(stats.buying/1000).toFixed(0)}k</p>
+                          <p className="font-semibold text-red-600">₹{(stats.buying / 1000).toFixed(0)}k</p>
                         </div>
                         <div>
                           <p className="text-xs text-green-500">Selling</p>
-                          <p className="font-semibold text-green-600">₹{(stats.selling/1000).toFixed(0)}k</p>
+                          <p className="font-semibold text-green-600">₹{(stats.selling / 1000).toFixed(0)}k</p>
                         </div>
                       </div>
                     </CardContent>
@@ -322,8 +327,8 @@ export default function Parties() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={() => deleteMutation.mutate(deleteParty.id)} 
+              <AlertDialogAction
+                onClick={() => deleteMutation.mutate(deleteParty.id)}
                 className="bg-red-600 hover:bg-red-700"
               >
                 Delete
