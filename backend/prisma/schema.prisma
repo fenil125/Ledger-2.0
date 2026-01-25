@@ -32,16 +32,17 @@ model User {
 
 // Party model - customers/vendors with contact info and images
 model Party {
-  id          String        @id @default(cuid())
-  name        String
-  phone       String
-  email       String?
-  address     String?
-  notes       String?
-  image       String?       // Cloudinary URL for party photo/logo
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  address       String?
+  notes         String?
+  image         String?       // Cloudinary URL for party photo/logo
+  isActive      Boolean       @default(true)
+  creditBalance Float         @default(0) // Overpayment credit balance
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   
   // Relations
   createdBy   String
@@ -66,9 +67,33 @@ model PartyPayment {
   createdBy     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  
+  // Soft-delete fields
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
+  deletedBy     String?
+  deleteReason  String?
+  
+  // Allocations to specific sell items
+  allocations   PaymentAllocation[]
 
   @@index([partyId])
   @@index([paymentDate])
+  @@index([isDeleted])
+}
+
+// Payment allocation - tracks how party payment was distributed to sell items
+model PaymentAllocation {
+  id              String       @id @default(cuid())
+  partyPaymentId  String
+  partyPayment    PartyPayment @relation(fields: [partyPaymentId], references: [id], onDelete: Cascade)
+  sellItemId      String
+  sellItem        SellItem     @relation(fields: [sellItemId], references: [id], onDelete: Cascade)
+  amount          Float        // Amount allocated to this sell item
+  createdAt       DateTime     @default(now())
+
+  @@index([partyPaymentId])
+  @@index([sellItemId])
 }
 
 // Transaction model - buy/sell transactions with daily tracking
@@ -132,13 +157,14 @@ model SellItem {
   totalAmount          Float         // count × ratePerItem
   transportationCharges Float        @default(0) // Transportation charges
   paymentDueDays       Int?          // Payment due in days (optional)
-  paymentReceived      Float         @default(0) // DEPRECATED: Calculated from payments
-  balanceLeft          Float         @default(0) // DEPRECATED: Calculated from payments
+  paymentReceived      Float         @default(0) // Total received (payments + allocations)
+  balanceLeft          Float         @default(0) // Remaining balance
   createdAt            DateTime      @default(now())
   
   // Relations
   transaction          Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   payments             Payment[]     // Individual payment records
+  allocations          PaymentAllocation[] // Party payment allocations
   
   @@index([transactionId])
 }

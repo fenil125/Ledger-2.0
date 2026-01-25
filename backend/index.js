@@ -499,11 +499,13 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
         notes: p.notes,
         created_at: p.createdAt
       })),
+      credit_balance: party.creditBalance || 0,
       summary: {
         buying_total: buyingTotal,
         selling_total: sellingTotal,
         total_received: totalReceived,
         balance_owed: sellingTotal - totalReceived,
+        credit_balance: party.creditBalance || 0,
         transaction_count: party.transactions.length,
         last_payment: allPayments.length > 0 ? allPayments[0].paymentDate : null
       }
@@ -650,7 +652,7 @@ app.delete('/api/payments/:id', authenticateToken, async (req, res) => {
 });
 
 // ============ PARTY PAYMENT ROUTES (Lump-sum payments) ============
-// Create a party-level payment
+// Create a party-level payment with auto-allocation to oldest unpaid transactions (FIFO)
 app.post('/api/party-payments', authenticateToken, async (req, res) => {
   try {
     const { partyId, amount, paymentDate, paymentMethod, notes } = req.body;
@@ -658,6 +660,8 @@ app.post('/api/party-payments', authenticateToken, async (req, res) => {
     if (!partyId || !amount || !paymentDate) {
       return res.status(400).json({ error: 'partyId, amount, and paymentDate are required' });
     }
+
+    const paymentAmount = parseFloat(amount);
 
     // Verify party exists
     const party = await prisma.party.findUnique({
@@ -668,32 +672,105 @@ app.post('/api/party-payments', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Party not found' });
     }
 
-    // Create party payment
-    const partyPayment = await prisma.partyPayment.create({
-      data: {
-        partyId,
-        amount: parseFloat(amount),
-        paymentDate: new Date(paymentDate),
-        paymentMethod: paymentMethod || null,
-        notes: notes || null,
-        createdBy: req.user.id
+    // ATOMIC TRANSACTION: Ensures all allocations succeed or none do
+    const result = await prisma.$transaction(async (tx) => {
+      // Create party payment
+      const partyPayment = await tx.partyPayment.create({
+        data: {
+          partyId,
+          amount: paymentAmount,
+          paymentDate: new Date(paymentDate),
+          paymentMethod: paymentMethod || null,
+          notes: notes || null,
+          createdBy: req.user.id
+        }
+      });
+
+      // FIFO Allocation: Get all sell items with balance > 0 for this party, ordered by date (oldest first)
+      const sellItemsWithBalance = await tx.sellItem.findMany({
+        where: {
+          transaction: {
+            partyId: partyId,
+            type: 'sell'
+          },
+          balanceLeft: { gt: 0 }
+        },
+        include: {
+          transaction: true
+        },
+        orderBy: {
+          transaction: {
+            date: 'asc' // Oldest first (FIFO)
+          }
+        }
+      });
+
+      let remainingAmount = paymentAmount;
+      const allocations = [];
+
+      // Allocate payment to each sell item (FIFO)
+      for (const sellItem of sellItemsWithBalance) {
+        if (remainingAmount <= 0) break;
+
+        const allocatableAmount = Math.min(remainingAmount, sellItem.balanceLeft);
+
+        // Create allocation record
+        allocations.push({
+          partyPaymentId: partyPayment.id,
+          sellItemId: sellItem.id,
+          amount: allocatableAmount
+        });
+
+        // Update sell item balances
+        await tx.sellItem.update({
+          where: { id: sellItem.id },
+          data: {
+            paymentReceived: sellItem.paymentReceived + allocatableAmount,
+            balanceLeft: sellItem.balanceLeft - allocatableAmount
+          }
+        });
+
+        remainingAmount -= allocatableAmount;
       }
+
+      // Create all allocation records
+      if (allocations.length > 0) {
+        await tx.paymentAllocation.createMany({
+          data: allocations
+        });
+      }
+
+      // Handle overpayment: Store as credit balance
+      let creditAdded = 0;
+      if (remainingAmount > 0) {
+        await tx.party.update({
+          where: { id: partyId },
+          data: {
+            creditBalance: party.creditBalance + remainingAmount
+          }
+        });
+        creditAdded = remainingAmount;
+      }
+
+      return { partyPayment, allocationsCount: allocations.length, creditAdded };
     });
 
-    // Notify admins
+    // Notify admins (outside transaction)
     await notifyAdmin(
       'recorded party payment',
-      `₹${amount} for ${party.name}`,
+      `₹${paymentAmount} for ${party.name}` + (result.creditAdded > 0 ? ` (₹${result.creditAdded} as credit)` : ''),
       req.user.id
     );
 
     res.json({
-      id: partyPayment.id,
-      amount: partyPayment.amount,
-      payment_date: partyPayment.paymentDate,
-      payment_method: partyPayment.paymentMethod,
-      notes: partyPayment.notes,
-      created_at: partyPayment.createdAt
+      id: result.partyPayment.id,
+      amount: result.partyPayment.amount,
+      payment_date: result.partyPayment.paymentDate,
+      payment_method: result.partyPayment.paymentMethod,
+      notes: result.partyPayment.notes,
+      created_at: result.partyPayment.createdAt,
+      allocations_count: result.allocationsCount,
+      credit_added: result.creditAdded
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -734,22 +811,69 @@ app.delete('/api/party-payments/:id', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Only admins can delete payment records' });
     }
-
+    // Verify payment exists
     const partyPayment = await prisma.partyPayment.findUnique({
       where: { id: req.params.id },
-      include: { party: true }
+      include: {
+        party: true,
+        allocations: {
+          include: { sellItem: true }
+        }
+      }
     });
 
     if (!partyPayment) {
       return res.status(404).json({ error: 'Party payment not found' });
     }
 
-    await prisma.partyPayment.delete({ where: { id: req.params.id } });
+    if (partyPayment.isDeleted) {
+      return res.status(400).json({ error: 'Payment already deleted' });
+    }
+
+    // ATOMIC REVERSAL: Soft-delete and reverse all allocations
+    await prisma.$transaction(async (tx) => {
+      // 1. Soft-delete the payment
+      await tx.partyPayment.update({
+        where: { id: req.params.id },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: req.user.id,
+          deleteReason: 'Admin deleted'
+        }
+      });
+
+      // 2. Reverse allocations (restore sell item balances)
+      for (const allocation of partyPayment.allocations) {
+        if (allocation.sellItem) {
+          await tx.sellItem.update({
+            where: { id: allocation.sellItemId },
+            data: {
+              paymentReceived: { decrement: allocation.amount },
+              balanceLeft: { increment: allocation.amount }
+            }
+          });
+        }
+      }
+
+      // 3. Adjust party credit balance (if any of the payment was stored as credit)
+      const allocatedAmount = partyPayment.allocations.reduce((sum, a) => sum + a.amount, 0);
+      const creditAmount = partyPayment.amount - allocatedAmount;
+
+      if (creditAmount > 0) {
+        await tx.party.update({
+          where: { id: partyPayment.partyId },
+          data: {
+            creditBalance: { decrement: creditAmount }
+          }
+        });
+      }
+    });
 
     // Notify admins about deletion
     await notifyAdmin(
       'deleted party payment',
-      `₹${partyPayment.amount} for ${partyPayment.party?.name || 'Unknown'}`,
+      `₹${partyPayment.amount} for ${partyPayment.party?.name || 'Unknown'} (allocations reversed)`,
       req.user.id
     );
 
