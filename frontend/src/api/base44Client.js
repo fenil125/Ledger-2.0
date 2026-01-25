@@ -157,6 +157,14 @@ export const base44 = {
     return handleResponse(response);
   },
 
+  async deletePartyPayment(id) {
+    const response = await fetch(`${API_BASE_URL}/api/party-payments/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
   // Stats endpoints
   async getStatsSummary() {
     const response = await fetch(`${API_BASE_URL}/api/stats/summary`, {

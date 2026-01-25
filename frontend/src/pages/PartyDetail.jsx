@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
     ArrowLeft, Phone, Mail, MapPin, Calendar,
     TrendingUp, TrendingDown, Wallet, CreditCard,
-    ChevronDown, ChevronUp, Plus, IndianRupee, Download
+    ChevronDown, ChevronUp, Plus, IndianRupee, Download, Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -120,6 +120,23 @@ export default function PartyDetail() {
             paymentMethod: partyPaymentForm.paymentMethod,
             notes: partyPaymentForm.notes
         });
+    };
+
+    const deletePartyPaymentMutation = useMutation({
+        mutationFn: (id) => base44.deletePartyPayment(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['party', id]);
+            toast.success('Payment deleted successfully');
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Failed to delete payment');
+        }
+    });
+
+    const handleDeletePartyPayment = (paymentId) => {
+        if (window.confirm('Are you sure you want to delete this payment? This will reverse Allocations.')) {
+            deletePartyPaymentMutation.mutate(paymentId);
+        }
     };
 
     const handleExportExcel = () => {
@@ -350,11 +367,22 @@ export default function PartyDetail() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            {payment.notes && (
-                                                <p className="text-sm text-slate-500 italic max-w-[250px] truncate">
-                                                    {payment.notes}
-                                                </p>
-                                            )}
+                                            <div className="flex items-center gap-4">
+                                                {payment.notes && (
+                                                    <p className="text-sm text-slate-500 italic max-w-[250px] truncate hidden sm:block">
+                                                        {payment.notes}
+                                                    </p>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8"
+                                                    onClick={() => handleDeletePartyPayment(payment.id)}
+                                                    disabled={deletePartyPaymentMutation.isPending}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
