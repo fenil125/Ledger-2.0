@@ -384,6 +384,7 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
       include: {
         creator: { select: { email: true, name: true } },
         partyPayments: {
+          where: { isDeleted: false },
           orderBy: { paymentDate: 'desc' }
         },
         transactions: {
@@ -787,7 +788,7 @@ app.get('/api/party-payments', authenticateToken, async (req, res) => {
     }
 
     const partyPayments = await prisma.partyPayment.findMany({
-      where: { partyId },
+      where: { partyId, isDeleted: false },
       orderBy: { paymentDate: 'desc' }
     });
 
@@ -888,7 +889,9 @@ app.delete('/api/party-payments/:id', authenticateToken, async (req, res) => {
 app.get('/api/stats/summary', authenticateToken, async (req, res) => {
   try {
     // Get all party payments
-    const partyPayments = await prisma.partyPayment.findMany();
+    const partyPayments = await prisma.partyPayment.findMany({
+      where: { isDeleted: false }
+    });
     const totalPartyPayments = partyPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     // Get transaction-level payments from sell items
@@ -930,7 +933,9 @@ app.get('/api/parties/stats', authenticateToken, async (req, res) => {
   try {
     const parties = await prisma.party.findMany({
       include: {
-        partyPayments: true,
+        partyPayments: {
+          where: { isDeleted: false }
+        },
         transactions: {
           include: {
             sellItems: {
