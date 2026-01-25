@@ -417,19 +417,18 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
       .filter(t => t.type === 'sell')
       .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
 
-    // Calculate total received from transaction-level payments
+    // Total received = Sum(sellItems.paymentReceived)
+    // This matches the transaction table sum exactly by excluding unallocated credit
+    const totalReceived = party.transactions
+      .filter(t => t.type === 'sell')
+      .flatMap(t => t.sellItems || [])
+      .reduce((sum, si) => sum + (si.paymentReceived || 0), 0);
+
+    // We still need individual payments for the list
     const transactionPayments = party.transactions
       .filter(t => t.type === 'sell')
       .flatMap(t => t.sellItems || [])
       .flatMap(si => si.payments || []);
-
-    const transactionPaymentsTotal = transactionPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-    // Calculate total received from party-level payments
-    const partyPaymentsTotal = (party.partyPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-
-    // Total received = transaction payments + party payments
-    const totalReceived = transactionPaymentsTotal + partyPaymentsTotal;
 
     // Combine all payments for last_payment tracking
     const allPayments = [...transactionPayments, ...(party.partyPayments || [])]
@@ -909,17 +908,16 @@ app.get('/api/stats/summary', authenticateToken, async (req, res) => {
     // Calculate total selling from sell items
     const totalSelling = sellItems.reduce((sum, si) => sum + (si.totalAmount || 0), 0);
 
-    // Total received = transaction payments + party payments
-    const totalReceived = transactionPayments + totalPartyPayments;
+    // Calculate total received from sell items (matches transaction table)
+    // This strictly sums what has been allocated/paid to transactions, excluding unused credit
+    const totalReceived = sellItems.reduce((sum, si) => sum + (si.paymentReceived || 0), 0);
 
-    // Balance left = total selling - total received
+    // Calculate actual balance left
     const balanceLeft = totalSelling - totalReceived;
 
     res.json({
-      total_party_payments: totalPartyPayments,
-      total_transaction_payments: transactionPayments,
-      total_received: totalReceived,
       total_selling: totalSelling,
+      total_received: totalReceived,
       balance_left: balanceLeft,
       party_payments_count: partyPayments.length
     });
@@ -959,18 +957,12 @@ app.get('/api/parties/stats', authenticateToken, async (req, res) => {
         .filter(t => t.type === 'buy')
         .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
 
-      // Transaction-level payments
-      const transactionPayments = party.transactions
+      // Total received from sell items (matches transaction table)
+      const totalReceived = party.transactions
         .filter(t => t.type === 'sell')
         .flatMap(t => t.sellItems || [])
-        .flatMap(si => si.payments || [])
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
+        .reduce((sum, si) => sum + (si.paymentReceived || 0), 0);
 
-      // Party-level payments
-      const partyPaymentsTotal = (party.partyPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-
-      // Total received and balance
-      const totalReceived = transactionPayments + partyPaymentsTotal;
       const balance = sellingTotal - totalReceived;
 
       return {
