@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
     ArrowLeft, Phone, Mail, MapPin, Calendar,
     TrendingUp, TrendingDown, Wallet, CreditCard,
-    ChevronDown, ChevronUp, Plus, IndianRupee
+    ChevronDown, ChevronUp, Plus, IndianRupee, Download
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,8 +33,15 @@ export default function PartyDetail() {
 
     const [expandedTransaction, setExpandedTransaction] = useState(null);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [showPartyPaymentDialog, setShowPartyPaymentDialog] = useState(false);
     const [selectedSellItem, setSelectedSellItem] = useState(null);
     const [paymentForm, setPaymentForm] = useState({
+        amount: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        paymentMethod: 'cash',
+        notes: ''
+    });
+    const [partyPaymentForm, setPartyPaymentForm] = useState({
         amount: '',
         paymentDate: new Date().toISOString().split('T')[0],
         paymentMethod: 'cash',
@@ -67,6 +74,25 @@ export default function PartyDetail() {
         },
     });
 
+    // Create party payment mutation
+    const createPartyPaymentMutation = useMutation({
+        mutationFn: (data) => base44.createPartyPayment(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['partyDetails', id]);
+            setShowPartyPaymentDialog(false);
+            setPartyPaymentForm({
+                amount: '',
+                paymentDate: new Date().toISOString().split('T')[0],
+                paymentMethod: 'cash',
+                notes: ''
+            });
+            toast.success('Payment recorded successfully!');
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Failed to record payment');
+        },
+    });
+
     const handleRecordPayment = (sellItem) => {
         setSelectedSellItem(sellItem);
         setShowPaymentDialog(true);
@@ -83,6 +109,67 @@ export default function PartyDetail() {
             paymentMethod: paymentForm.paymentMethod,
             notes: paymentForm.notes
         });
+    };
+
+    const handlePartyPaymentSubmit = (e) => {
+        e.preventDefault();
+        createPartyPaymentMutation.mutate({
+            partyId: id,
+            amount: parseFloat(partyPaymentForm.amount),
+            paymentDate: partyPaymentForm.paymentDate,
+            paymentMethod: partyPaymentForm.paymentMethod,
+            notes: partyPaymentForm.notes
+        });
+    };
+
+    const handleExportExcel = () => {
+        if (!party) return;
+
+        // Create CSV content
+        let csvContent = '\uFEFF'; // BOM for Excel UTF-8
+
+        // Party Info
+        csvContent += 'PARTY DETAILS\n';
+        csvContent += `Name,${party.name}\n`;
+        csvContent += `Phone,${party.phone || '-'}\n`;
+        csvContent += `Email,${party.email || '-'}\n`;
+        csvContent += `Address,${party.address || '-'}\n\n`;
+
+        // Summary
+        csvContent += 'SUMMARY\n';
+        csvContent += `Total Buying,₹${(party.summary?.buying_total || 0).toLocaleString()}\n`;
+        csvContent += `Total Selling,₹${(party.summary?.selling_total || 0).toLocaleString()}\n`;
+        csvContent += `Total Received,₹${(party.summary?.total_received || 0).toLocaleString()}\n`;
+        csvContent += `Balance Due,₹${(party.summary?.balance_owed || 0).toLocaleString()}\n\n`;
+
+        // Party Payments
+        if (party.party_payments && party.party_payments.length > 0) {
+            csvContent += 'PARTY PAYMENTS\n';
+            csvContent += 'Date,Amount,Method,Notes\n';
+            party.party_payments.forEach(p => {
+                csvContent += `${p.payment_date ? format(new Date(p.payment_date), 'dd MMM yyyy') : '-'},₹${(p.amount || 0).toLocaleString()},${p.payment_method || '-'},${p.notes || '-'}\n`;
+            });
+            csvContent += '\n';
+        }
+
+        // Transactions
+        csvContent += 'TRANSACTIONS\n';
+        csvContent += 'Date,Type,Total Weight,Total Amount,Pay Received,Balance,Notes\n';
+        (party.transactions || []).forEach(t => {
+            const payReceived = t.type === 'sell' && t.sell_items?.[0] ? t.sell_items[0].payment_received || 0 : '-';
+            const balance = t.type === 'sell' && t.sell_items?.[0] ? t.sell_items[0].balance_left || 0 : '-';
+            csvContent += `${t.date ? format(new Date(t.date), 'dd MMM yyyy') : '-'},${t.type === 'buy' ? 'BUY' : 'SELL'},${t.total_weight || 0}kg,₹${(t.total_payment || 0).toLocaleString()},${payReceived !== '-' ? '₹' + payReceived.toLocaleString() : '-'},${balance !== '-' ? '₹' + balance.toLocaleString() : '-'},${t.notes || '-'}\n`;
+        });
+
+        // Download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${party.name}_transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Exported to CSV successfully!');
     };
 
     if (isLoading) {
@@ -149,9 +236,26 @@ export default function PartyDetail() {
                                 )}
                             </div>
                         </div>
-                        <Badge variant={party.is_active ? 'default' : 'secondary'}>
-                            {party.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={handleExportExcel}
+                                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Export
+                            </Button>
+                            <Button
+                                onClick={() => setShowPartyPaymentDialog(true)}
+                                className="bg-green-600 hover:bg-green-700"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Record Payment
+                            </Button>
+                            <Badge variant={party.is_active ? 'default' : 'secondary'}>
+                                {party.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                        </div>
                     </div>
                 </motion.div>
 
@@ -211,6 +315,54 @@ export default function PartyDetail() {
                     </Card>
                 </motion.div>
 
+                {/* Party Payments Section */}
+                {party.party_payments && party.party_payments.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 }}
+                        className="mb-8"
+                    >
+                        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <Wallet className="w-5 h-5 text-green-600" />
+                            Payments Received
+                        </h2>
+                        <div className="space-y-2">
+                            {party.party_payments.map((payment) => (
+                                <Card key={payment.id} className="border-green-200 bg-green-50/30">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                                    <IndianRupee className="w-5 h-5 text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-green-700 text-lg">
+                                                        ₹{(payment.amount || 0).toLocaleString()}
+                                                    </p>
+                                                    <p className="text-sm text-slate-500">
+                                                        {payment.payment_date ? format(new Date(payment.payment_date), 'dd MMM yyyy') : '-'}
+                                                        {payment.payment_method && (
+                                                            <span className="ml-2 px-2 py-0.5 bg-white rounded text-slate-600 text-xs">
+                                                                {payment.payment_method}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {payment.notes && (
+                                                <p className="text-sm text-slate-500 italic max-w-[250px] truncate">
+                                                    {payment.notes}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+
                 {/* Transaction History */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -236,8 +388,8 @@ export default function PartyDetail() {
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${transaction.type === 'buy'
-                                                        ? 'bg-red-100 text-red-600'
-                                                        : 'bg-green-100 text-green-600'
+                                                    ? 'bg-red-100 text-red-600'
+                                                    : 'bg-green-100 text-green-600'
                                                     }`}>
                                                     {transaction.type === 'buy' ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                                                 </div>
@@ -456,6 +608,102 @@ export default function PartyDetail() {
                                     disabled={createPaymentMutation.isPending}
                                 >
                                     {createPaymentMutation.isPending ? 'Saving...' : 'Save Payment'}
+                                </Button>
+                            </div>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Party Payment Dialog */}
+                <Dialog open={showPartyPaymentDialog} onOpenChange={setShowPartyPaymentDialog}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <IndianRupee className="w-5 h-5 text-green-600" />
+                                Record Payment for {party.name}
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        <div className="mb-4 p-3 bg-slate-50 rounded-lg text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-slate-600">Total Selling:</span>
+                                <span className="font-semibold">₹{(party.summary?.selling_total || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-600">Already Received:</span>
+                                <span className="font-semibold text-green-600">₹{(party.summary?.total_received || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-1 mt-1">
+                                <span className="text-slate-700 font-medium">Balance Due:</span>
+                                <span className="font-bold text-orange-600">₹{(party.summary?.balance_owed || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handlePartyPaymentSubmit} className="space-y-4">
+                            <div>
+                                <Label className="text-slate-700">Amount (₹) *</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Enter amount"
+                                    value={partyPaymentForm.amount}
+                                    onChange={(e) => setPartyPaymentForm({ ...partyPaymentForm, amount: e.target.value })}
+                                    className="mt-1"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-slate-700">Payment Date *</Label>
+                                <Input
+                                    type="date"
+                                    value={partyPaymentForm.paymentDate}
+                                    onChange={(e) => setPartyPaymentForm({ ...partyPaymentForm, paymentDate: e.target.value })}
+                                    className="mt-1"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-slate-700">Payment Method</Label>
+                                <Select
+                                    value={partyPaymentForm.paymentMethod}
+                                    onValueChange={(v) => setPartyPaymentForm({ ...partyPaymentForm, paymentMethod: v })}
+                                >
+                                    <SelectTrigger className="mt-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PAYMENT_METHODS.map(method => (
+                                            <SelectItem key={method.value} value={method.value}>
+                                                {method.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label className="text-slate-700">Notes</Label>
+                                <Textarea
+                                    placeholder="e.g., Overall settlement, Advance payment..."
+                                    value={partyPaymentForm.notes}
+                                    onChange={(e) => setPartyPaymentForm({ ...partyPaymentForm, notes: e.target.value })}
+                                    className="mt-1"
+                                    rows={2}
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                                <Button type="button" variant="outline" onClick={() => setShowPartyPaymentDialog(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    disabled={createPartyPaymentMutation.isPending}
+                                >
+                                    {createPartyPaymentMutation.isPending ? 'Saving...' : 'Save Payment'}
                                 </Button>
                             </div>
                         </form>

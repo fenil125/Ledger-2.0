@@ -383,6 +383,9 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
       where: { id: req.params.id },
       include: {
         creator: { select: { email: true, name: true } },
+        partyPayments: {
+          orderBy: { paymentDate: 'desc' }
+        },
         transactions: {
           include: {
             buyItems: true,
@@ -413,13 +416,23 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
       .filter(t => t.type === 'sell')
       .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
 
-    // Calculate total received from all payments
-    const allPayments = party.transactions
+    // Calculate total received from transaction-level payments
+    const transactionPayments = party.transactions
       .filter(t => t.type === 'sell')
       .flatMap(t => t.sellItems || [])
       .flatMap(si => si.payments || []);
 
-    const totalReceived = allPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const transactionPaymentsTotal = transactionPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Calculate total received from party-level payments
+    const partyPaymentsTotal = (party.partyPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Total received = transaction payments + party payments
+    const totalReceived = transactionPaymentsTotal + partyPaymentsTotal;
+
+    // Combine all payments for last_payment tracking
+    const allPayments = [...transactionPayments, ...(party.partyPayments || [])]
+      .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
 
     // Map transactions for frontend
     const mappedTransactions = party.transactions.map(t => ({
@@ -478,6 +491,14 @@ app.get('/api/parties/:id/details', authenticateToken, async (req, res) => {
       created_at: party.createdAt,
       created_by: party.creator?.email || 'system',
       transactions: mappedTransactions,
+      party_payments: (party.partyPayments || []).map(p => ({
+        id: p.id,
+        amount: p.amount,
+        payment_date: p.paymentDate,
+        payment_method: p.paymentMethod,
+        notes: p.notes,
+        created_at: p.createdAt
+      })),
       summary: {
         buying_total: buyingTotal,
         selling_total: sellingTotal,
@@ -625,6 +646,221 @@ app.delete('/api/payments/:id', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// ============ PARTY PAYMENT ROUTES (Lump-sum payments) ============
+// Create a party-level payment
+app.post('/api/party-payments', authenticateToken, async (req, res) => {
+  try {
+    const { partyId, amount, paymentDate, paymentMethod, notes } = req.body;
+
+    if (!partyId || !amount || !paymentDate) {
+      return res.status(400).json({ error: 'partyId, amount, and paymentDate are required' });
+    }
+
+    // Verify party exists
+    const party = await prisma.party.findUnique({
+      where: { id: partyId }
+    });
+
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+
+    // Create party payment
+    const partyPayment = await prisma.partyPayment.create({
+      data: {
+        partyId,
+        amount: parseFloat(amount),
+        paymentDate: new Date(paymentDate),
+        paymentMethod: paymentMethod || null,
+        notes: notes || null,
+        createdBy: req.user.id
+      }
+    });
+
+    // Notify admins
+    await notifyAdmin(
+      'recorded party payment',
+      `₹${amount} for ${party.name}`,
+      req.user.id
+    );
+
+    res.json({
+      id: partyPayment.id,
+      amount: partyPayment.amount,
+      payment_date: partyPayment.paymentDate,
+      payment_method: partyPayment.paymentMethod,
+      notes: partyPayment.notes,
+      created_at: partyPayment.createdAt
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get party payments
+app.get('/api/party-payments', authenticateToken, async (req, res) => {
+  try {
+    const { partyId } = req.query;
+
+    if (!partyId) {
+      return res.status(400).json({ error: 'partyId is required' });
+    }
+
+    const partyPayments = await prisma.partyPayment.findMany({
+      where: { partyId },
+      orderBy: { paymentDate: 'desc' }
+    });
+
+    res.json(partyPayments.map(p => ({
+      id: p.id,
+      amount: p.amount,
+      payment_date: p.paymentDate,
+      payment_method: p.paymentMethod,
+      notes: p.notes,
+      created_at: p.createdAt
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a party payment (admin only)
+app.delete('/api/party-payments/:id', authenticateToken, async (req, res) => {
+  try {
+    // Only admins can delete payments for audit safety
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete payment records' });
+    }
+
+    const partyPayment = await prisma.partyPayment.findUnique({
+      where: { id: req.params.id },
+      include: { party: true }
+    });
+
+    if (!partyPayment) {
+      return res.status(404).json({ error: 'Party payment not found' });
+    }
+
+    await prisma.partyPayment.delete({ where: { id: req.params.id } });
+
+    // Notify admins about deletion
+    await notifyAdmin(
+      'deleted party payment',
+      `₹${partyPayment.amount} for ${partyPayment.party?.name || 'Unknown'}`,
+      req.user.id
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ============ STATS SUMMARY ENDPOINT ============
+// Get aggregated stats including all party payments
+app.get('/api/stats/summary', authenticateToken, async (req, res) => {
+  try {
+    // Get all party payments
+    const partyPayments = await prisma.partyPayment.findMany();
+    const totalPartyPayments = partyPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Get transaction-level payments from sell items
+    const sellItems = await prisma.sellItem.findMany({
+      include: {
+        payments: true
+      }
+    });
+
+    const transactionPayments = sellItems.reduce((sum, si) => {
+      const siPayments = (si.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+      return sum + siPayments;
+    }, 0);
+
+    // Calculate total selling from sell items
+    const totalSelling = sellItems.reduce((sum, si) => sum + (si.totalAmount || 0), 0);
+
+    // Total received = transaction payments + party payments
+    const totalReceived = transactionPayments + totalPartyPayments;
+
+    // Balance left = total selling - total received
+    const balanceLeft = totalSelling - totalReceived;
+
+    res.json({
+      total_party_payments: totalPartyPayments,
+      total_transaction_payments: transactionPayments,
+      total_received: totalReceived,
+      total_selling: totalSelling,
+      balance_left: balanceLeft,
+      party_payments_count: partyPayments.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get party stats with party payments included
+app.get('/api/parties/stats', authenticateToken, async (req, res) => {
+  try {
+    const parties = await prisma.party.findMany({
+      include: {
+        partyPayments: true,
+        transactions: {
+          include: {
+            sellItems: {
+              include: {
+                payments: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const partyStats = parties.map(party => {
+      // Calculate selling total
+      const sellingTotal = party.transactions
+        .filter(t => t.type === 'sell')
+        .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
+
+      // Calculate buying total
+      const buyingTotal = party.transactions
+        .filter(t => t.type === 'buy')
+        .reduce((sum, t) => sum + (t.totalPayment || 0), 0);
+
+      // Transaction-level payments
+      const transactionPayments = party.transactions
+        .filter(t => t.type === 'sell')
+        .flatMap(t => t.sellItems || [])
+        .flatMap(si => si.payments || [])
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      // Party-level payments
+      const partyPaymentsTotal = (party.partyPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      // Total received and balance
+      const totalReceived = transactionPayments + partyPaymentsTotal;
+      const balance = sellingTotal - totalReceived;
+
+      return {
+        id: party.id,
+        name: party.name,
+        phone: party.phone,
+        image: party.image,
+        is_active: party.isActive,
+        buying_total: buyingTotal,
+        selling_total: sellingTotal,
+        total_received: totalReceived,
+        balance: balance,
+        transaction_count: party.transactions.length
+      };
+    });
+
+    res.json(partyStats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

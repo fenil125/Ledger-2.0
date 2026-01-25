@@ -35,9 +35,10 @@ export default function Parties() {
     queryFn: () => base44.entities.Party.list('-created_date'),
   });
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list(),
+  // Fetch party stats with party payments included
+  const { data: partyStats = [] } = useQuery({
+    queryKey: ['partyStats'],
+    queryFn: () => base44.getPartyStats(),
   });
 
   const createMutation = useMutation({
@@ -99,11 +100,18 @@ export default function Parties() {
     }
   };
 
-  const getPartyStats = (partyName) => {
-    const partyTx = transactions.filter(t => t.party_name === partyName);
-    const buying = partyTx.filter(t => t.transaction_type === 'buying').reduce((sum, t) => sum + (t.total_payment || 0), 0);
-    const selling = partyTx.filter(t => t.transaction_type === 'selling').reduce((sum, t) => sum + (t.total_payment || 0), 0);
-    return { buying, selling, count: partyTx.length };
+  const getPartyStats = (partyId) => {
+    const stats = partyStats.find(p => p.id === partyId);
+    if (stats) {
+      return {
+        buying: stats.buying_total || 0,
+        selling: stats.selling_total || 0,
+        received: stats.total_received || 0,
+        balance: stats.balance || 0,
+        count: stats.transaction_count || 0
+      };
+    }
+    return { buying: 0, selling: 0, received: 0, balance: 0, count: 0 };
   };
 
   const filteredParties = parties.filter(party =>
@@ -151,7 +159,7 @@ export default function Parties() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
             {filteredParties.map((party, index) => {
-              const stats = getPartyStats(party.name);
+              const stats = getPartyStats(party.id);
               return (
                 <motion.div
                   key={party.id}
@@ -219,18 +227,22 @@ export default function Parties() {
                       </div>
 
                       {/* Stats */}
-                      <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                      <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-4 gap-2 text-center">
                         <div>
-                          <p className="text-xs text-slate-500">Transactions</p>
+                          <p className="text-xs text-slate-500">Txns</p>
                           <p className="font-semibold text-slate-700">{stats.count}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-red-500">Buying</p>
-                          <p className="font-semibold text-red-600">₹{(stats.buying / 1000).toFixed(0)}k</p>
                         </div>
                         <div>
                           <p className="text-xs text-green-500">Selling</p>
                           <p className="font-semibold text-green-600">₹{(stats.selling / 1000).toFixed(0)}k</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-500">Received</p>
+                          <p className="font-semibold text-blue-600">₹{(stats.received / 1000).toFixed(0)}k</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-orange-500">Balance</p>
+                          <p className={`font-semibold ${stats.balance > 0 ? 'text-orange-600' : 'text-green-600'}`}>₹{(stats.balance / 1000).toFixed(0)}k</p>
                         </div>
                       </div>
                     </CardContent>

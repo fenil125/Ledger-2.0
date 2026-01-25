@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Scale, Wallet, Banknote, Receipt } from "lucide-react";
 import { motion } from "framer-motion";
 
-export default function StatsCards({ transactions }) {
+export default function StatsCards({ transactions, statsSummary }) {
   const buyingTotal = transactions
     .filter(t => t.transaction_type === 'buying')
     .reduce((sum, t) => sum + (t.total_payment || 0), 0);
@@ -17,16 +17,17 @@ export default function StatsCards({ transactions }) {
 
   const balance = sellingTotal - buyingTotal;
 
-  // Calculate total payment received from selling transactions
-  const paymentReceived = transactions
+  // Use statsSummary for accurate payment data (includes party payments)
+  // Fall back to transaction-level calculation if statsSummary not available
+  const paymentReceived = statsSummary?.total_received ?? transactions
     .filter(t => t.transaction_type === 'selling')
     .reduce((sum, t) => {
       const received = t.sell_items?.[0]?.payment_received || 0;
       return sum + received;
     }, 0);
 
-  // Calculate total balance left (pending) from selling transactions
-  const balanceLeft = transactions
+  // Use statsSummary for balance left (includes party payments)
+  const balanceLeft = statsSummary?.balance_left ?? transactions
     .filter(t => t.transaction_type === 'selling')
     .reduce((sum, t) => {
       const left = t.sell_items?.[0]?.balance_left || 0;

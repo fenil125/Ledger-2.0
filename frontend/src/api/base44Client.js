@@ -139,6 +139,41 @@ export const base44 = {
     return handleResponse(response);
   },
 
+  // Party payment endpoints (lump-sum payments)
+  async createPartyPayment(data) {
+    const response = await fetch(`${API_BASE_URL}/api/party-payments`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  async getPartyPayments(partyId) {
+    const response = await fetch(`${API_BASE_URL}/api/party-payments?partyId=${partyId}`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  // Stats endpoints
+  async getStatsSummary() {
+    const response = await fetch(`${API_BASE_URL}/api/stats/summary`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
+  async getPartyStats() {
+    const response = await fetch(`${API_BASE_URL}/api/parties/stats`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(response);
+  },
+
   // Notification endpoints
   async getNotifications() {
     const response = await fetch(`${API_BASE_URL}/api/notifications`, {

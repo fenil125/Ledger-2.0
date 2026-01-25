@@ -47,10 +47,28 @@ model Party {
   createdBy   String
   creator     User          @relation("CreatedParties", fields: [createdBy], references: [id])
   transactions Transaction[]
+  partyPayments PartyPayment[]
   
   @@index([phone])
   @@index([name])
   @@index([createdBy])
+}
+
+// Party-level payment - not tied to specific transaction (lump-sum payments)
+model PartyPayment {
+  id            String    @id @default(cuid())
+  partyId       String
+  party         Party     @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentDate   DateTime
+  paymentMethod String?   // cash, bank, upi, cheque
+  notes         String?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([partyId])
+  @@index([paymentDate])
 }
 
 // Transaction model - buy/sell transactions with daily tracking

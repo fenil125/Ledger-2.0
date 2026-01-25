@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, ShoppingBag, Calculator, Users, Activity, Award } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, ShoppingBag, Calculator, Users, Activity, Award, Wallet, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 
@@ -24,13 +24,19 @@ export default function Reports() {
     queryFn: () => base44.entities.Party.list(),
   });
 
+  // Fetch stats summary including party payments
+  const { data: statsSummary } = useQuery({
+    queryKey: ['statsSummary'],
+    queryFn: () => base44.getStatsSummary(),
+  });
+
   // Separate buying and selling transactions
-  const buyingTransactions = useMemo(() => 
+  const buyingTransactions = useMemo(() =>
     transactions.filter(t => t.transaction_type === 'buying').slice(0, 10),
     [transactions]
   );
 
-  const sellingTransactions = useMemo(() => 
+  const sellingTransactions = useMemo(() =>
     transactions.filter(t => t.transaction_type === 'selling').slice(0, 10),
     [transactions]
   );
@@ -39,18 +45,18 @@ export default function Reports() {
   const kpis = useMemo(() => {
     const allBuying = transactions.filter(t => t.transaction_type === 'buying');
     const allSelling = transactions.filter(t => t.transaction_type === 'selling');
-    
+
     const totalBuyAmount = allBuying.reduce((sum, t) => sum + (t.total_payment || 0), 0);
     const totalSellAmount = allSelling.reduce((sum, t) => sum + (t.total_payment || 0), 0);
-    
+
     const totalBuyWeight = allBuying.reduce((sum, t) => sum + (t.total_weight || 0), 0);
     const totalSellWeight = allSelling.reduce((sum, t) => sum + (t.total_weight || 0), 0);
     const netWeight = totalSellWeight - totalBuyWeight;
-    
+
     const netProfit = totalSellAmount - totalBuyAmount;
     const avgBuyRate = totalBuyWeight > 0 ? totalBuyAmount / totalBuyWeight : 0;
     const avgSellRate = totalSellWeight > 0 ? totalSellAmount / totalSellWeight : 0;
-    
+
     // Top selling items
     const itemRevenue = {};
     allSelling.forEach(t => {
@@ -64,10 +70,10 @@ export default function Reports() {
         });
       }
     });
-    
+
     const topItem = Object.entries(itemRevenue)
       .sort(([, a], [, b]) => b - a)[0];
-    
+
     // Top party
     const partyRevenue = {};
     transactions.forEach(t => {
@@ -77,12 +83,12 @@ export default function Reports() {
       }
       partyRevenue[party] += t.total_payment || 0;
     });
-    
+
     const topParty = Object.entries(partyRevenue)
       .sort(([, a], [, b]) => b - a)[0];
-    
+
     const activeParties = new Set(transactions.map(t => t.party_name)).size;
-    
+
     return {
       totalBuyAmount,
       totalSellAmount,
@@ -103,7 +109,7 @@ export default function Reports() {
   const exportBuyingCSV = () => {
     const limit = buyExportLimit === 'all' ? transactions.filter(t => t.transaction_type === 'buying').length : parseInt(buyExportLimit);
     const data = transactions.filter(t => t.transaction_type === 'buying').slice(0, limit);
-    
+
     const headers = ['#', 'Date', 'Party', 'Phone', 'HNY Rate', 'HNY Weight', 'Black Rate', 'Black Weight', 'Total Weight (kg)', 'Total Payment (₹)', 'Notes', 'Added By'];
     const rows = data.map((t, idx) => [
       idx + 1,
@@ -119,7 +125,7 @@ export default function Reports() {
       t.notes || '-',
       t.created_by
     ]);
-    
+
     const csv = '\uFEFF' + [headers, ...rows].map(row => row.join(',')).join('\n');
     downloadCSV(csv, `buying_transactions_top${limit}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     toast.success(`Exported top ${limit} buying transactions`);
@@ -128,17 +134,17 @@ export default function Reports() {
   const exportSellingCSV = () => {
     const limit = sellExportLimit === 'all' ? transactions.filter(t => t.transaction_type === 'selling').length : parseInt(sellExportLimit);
     const data = transactions.filter(t => t.transaction_type === 'selling').slice(0, limit);
-    
+
     const headers = ['#', 'Date', 'Party', 'Phone', 'Items Summary', 'Total Weight (kg)', 'Total Payment (₹)', 'Payment Due (Days)', 'Payment Received (₹)', 'Balance Left (₹)', 'Notes', 'Added By'];
     const rows = data.map((t, idx) => {
-      const itemsSummary = t.sell_items?.map(item => 
+      const itemsSummary = t.sell_items?.map(item =>
         `${item.item_name}: ${item.count} × ${item.weight_per_item}kg = ${item.total_weight}kg → ₹${item.total_amount}`
       ).join('; ') || '-';
-      
+
       const paymentDue = t.sell_items?.[0]?.payment_due_days || '-';
       const paymentReceived = t.sell_items?.[0]?.payment_received || 0;
       const balanceLeft = t.sell_items?.[0]?.balance_left || 0;
-      
+
       return [
         idx + 1,
         format(new Date(t.date), 'dd MMM yyyy'),
@@ -154,7 +160,7 @@ export default function Reports() {
         t.created_by
       ];
     });
-    
+
     const csv = '\uFEFF' + [headers, ...rows].map(row => row.join(',')).join('\n');
     downloadCSV(csv, `selling_transactions_top${limit}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     toast.success(`Exported top ${limit} selling transactions`);
@@ -174,7 +180,7 @@ export default function Reports() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 p-6">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -320,6 +326,34 @@ export default function Reports() {
               </CardContent>
             </Card>
           )}
+
+          {/* Payment Received - includes party payments */}
+          <Card className="border-cyan-200 bg-gradient-to-br from-cyan-50 to-white">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2 bg-cyan-100 rounded-lg">
+                  <Wallet className="w-5 h-5 text-cyan-600" />
+                </div>
+              </div>
+              <p className="text-xs font-medium text-cyan-600 uppercase tracking-wide mb-1">Payment Received</p>
+              <p className="text-2xl font-bold text-cyan-700">₹{((statsSummary?.total_received || 0) / 1000).toFixed(1)}k</p>
+              <p className="text-xs text-slate-500 mt-1">{statsSummary?.party_payments_count || 0} party payments</p>
+            </CardContent>
+          </Card>
+
+          {/* Balance Left - includes party payments */}
+          <Card className={`border-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-200 bg-gradient-to-br from-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-50 to-white`}>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`p-2 bg-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-100 rounded-lg`}>
+                  <Receipt className={`w-5 h-5 text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-600`} />
+                </div>
+              </div>
+              <p className={`text-xs font-medium text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-600 uppercase tracking-wide mb-1`}>Balance Due</p>
+              <p className={`text-2xl font-bold text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-700`}>₹{((statsSummary?.balance_left || 0) / 1000).toFixed(1)}k</p>
+              <p className="text-xs text-slate-500 mt-1">{(statsSummary?.balance_left || 0) > 0 ? 'Pending' : 'Cleared'}</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Buying Transactions Table */}

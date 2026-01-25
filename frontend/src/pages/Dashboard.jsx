@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('buying');
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deleteTransaction, setDeleteTransaction] = useState(null);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -39,6 +39,12 @@ export default function Dashboard() {
   const { data: parties = [] } = useQuery({
     queryKey: ['parties'],
     queryFn: () => base44.entities.Party.list(),
+  });
+
+  // Fetch stats summary including party payments
+  const { data: statsSummary } = useQuery({
+    queryKey: ['statsSummary'],
+    queryFn: () => base44.getStatsSummary(),
   });
 
   const createMutation = useMutation({
@@ -133,19 +139,19 @@ export default function Dashboard() {
     // Search
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         t.party_name?.toLowerCase().includes(search) ||
         t.phone?.toLowerCase().includes(search) ||
         t.item_name?.toLowerCase().includes(search);
       if (!matchesSearch) return false;
     }
-    
+
     // Type filter
     if (typeFilter !== 'all' && t.transaction_type !== typeFilter) return false;
-    
+
     // Party filter
     if (partyFilter !== 'all' && t.party_name !== partyFilter) return false;
-    
+
     // Period filter (Monthly, Quarterly, Yearly)
     const periodRange = getPeriodDateRange();
     if (periodRange.from && periodRange.to && t.date) {
@@ -158,7 +164,7 @@ export default function Dashboard() {
       const txDate = new Date(t.date);
       if (!isWithinInterval(txDate, { start: dateRange.from, end: dateRange.to })) return false;
     }
-    
+
     return true;
   });
 
@@ -166,7 +172,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
@@ -175,7 +181,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
             <p className="text-slate-500 mt-1">Manage your buying and selling transactions</p>
           </div>
-          <Button 
+          <Button
             onClick={() => {
               setEditingTransaction(null);
               setShowAddDialog(true);
@@ -189,7 +195,7 @@ export default function Dashboard() {
 
         {/* Stats */}
         <div className="mb-8">
-          <StatsCards transactions={filteredTransactions} />
+          <StatsCards transactions={filteredTransactions} statsSummary={statsSummary} />
         </div>
 
         {/* Filters */}
@@ -226,7 +232,7 @@ export default function Dashboard() {
                 {editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
               </DialogTitle>
             </DialogHeader>
-            
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="buying" className="flex items-center gap-2">
@@ -238,7 +244,7 @@ export default function Dashboard() {
                   Selling
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="buying">
                 <BuyingForm
                   transaction={editingTransaction?.transaction_type === 'buying' ? editingTransaction : null}
@@ -247,7 +253,7 @@ export default function Dashboard() {
                   isLoading={createMutation.isPending || updateMutation.isPending}
                 />
               </TabsContent>
-              
+
               <TabsContent value="selling">
                 <SellingForm
                   transaction={editingTransaction?.transaction_type === 'selling' ? editingTransaction : null}
