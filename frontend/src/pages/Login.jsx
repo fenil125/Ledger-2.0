@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -7,10 +7,6 @@ import { Chrome, ShieldCheck, TrendingUp, Users } from "lucide-react";
 export default function Login() {
   const handleGoogleLogin = () => {
     const api = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-    // Helpful debug log to confirm which backend URL will be used for OAuth
-    // (prints in browser console; safe for production)
-    // eslint-disable-next-line no-console
-    console.info('[Auth] Redirecting to OAuth start:', `${api}/auth/google`);
     window.location.href = `${api}/auth/google`;
   };
 

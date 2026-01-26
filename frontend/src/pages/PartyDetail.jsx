@@ -123,9 +123,9 @@ export default function PartyDetail() {
     };
 
     const deletePartyPaymentMutation = useMutation({
-        mutationFn: (id) => base44.deletePartyPayment(id),
+        mutationFn: (paymentId) => base44.deletePartyPayment(paymentId),
         onSuccess: () => {
-            queryClient.invalidateQueries(['party', id]);
+            queryClient.invalidateQueries(['partyDetails', id]);
             toast.success('Payment deleted successfully');
         },
         onError: (error) => {

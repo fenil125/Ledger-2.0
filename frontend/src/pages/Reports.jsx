@@ -220,17 +220,17 @@ export default function Reports() {
           </Card>
 
           {/* Net Profit */}
-          <Card className={`border-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-200 bg-gradient-to-br from-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-50 to-white`}>
+          <Card className={kpis.netProfit >= 0 ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-white' : 'border-orange-200 bg-gradient-to-br from-orange-50 to-white'}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
-                <div className={`p-2 bg-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-100 rounded-lg`}>
-                  <Calculator className={`w-5 h-5 text-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-600`} />
+                <div className={kpis.netProfit >= 0 ? 'p-2 bg-blue-100 rounded-lg' : 'p-2 bg-orange-100 rounded-lg'}>
+                  <Calculator className={kpis.netProfit >= 0 ? 'w-5 h-5 text-blue-600' : 'w-5 h-5 text-orange-600'} />
                 </div>
               </div>
-              <p className={`text-xs font-medium text-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-600 uppercase tracking-wide mb-1`}>
+              <p className={kpis.netProfit >= 0 ? 'text-xs font-medium text-blue-600 uppercase tracking-wide mb-1' : 'text-xs font-medium text-orange-600 uppercase tracking-wide mb-1'}>
                 Net {kpis.netProfit >= 0 ? 'Profit' : 'Loss'}
               </p>
-              <p className={`text-2xl font-bold text-${kpis.netProfit >= 0 ? 'blue' : 'orange'}-700`}>
+              <p className={kpis.netProfit >= 0 ? 'text-2xl font-bold text-blue-700' : 'text-2xl font-bold text-orange-700'}>
                 {kpis.netProfit >= 0 ? '+' : ''}₹{(kpis.netProfit / 1000).toFixed(1)}k
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -266,17 +266,17 @@ export default function Reports() {
           </Card>
 
           {/* Net Weight */}
-          <Card className={`border-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-200 bg-gradient-to-br from-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-50 to-white`}>
+          <Card className={kpis.netWeight >= 0 ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-white' : 'border-rose-200 bg-gradient-to-br from-rose-50 to-white'}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
-                <div className={`p-2 bg-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-100 rounded-lg`}>
-                  <Package className={`w-5 h-5 text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-600`} />
+                <div className={kpis.netWeight >= 0 ? 'p-2 bg-emerald-100 rounded-lg' : 'p-2 bg-rose-100 rounded-lg'}>
+                  <Package className={kpis.netWeight >= 0 ? 'w-5 h-5 text-emerald-600' : 'w-5 h-5 text-rose-600'} />
                 </div>
               </div>
-              <p className={`text-xs font-medium text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-600 uppercase tracking-wide mb-1`}>
+              <p className={kpis.netWeight >= 0 ? 'text-xs font-medium text-emerald-600 uppercase tracking-wide mb-1' : 'text-xs font-medium text-rose-600 uppercase tracking-wide mb-1'}>
                 Net Weight
               </p>
-              <p className={`text-2xl font-bold text-${kpis.netWeight >= 0 ? 'emerald' : 'rose'}-700`}>
+              <p className={kpis.netWeight >= 0 ? 'text-2xl font-bold text-emerald-700' : 'text-2xl font-bold text-rose-700'}>
                 {kpis.netWeight >= 0 ? '+' : ''}{kpis.netWeight.toFixed(0)} kg
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -342,15 +342,15 @@ export default function Reports() {
           </Card>
 
           {/* Balance Left - includes party payments */}
-          <Card className={`border-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-200 bg-gradient-to-br from-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-50 to-white`}>
+          <Card className={(statsSummary?.balance_left || 0) > 0 ? 'border-orange-200 bg-gradient-to-br from-orange-50 to-white' : 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-white'}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
-                <div className={`p-2 bg-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-100 rounded-lg`}>
-                  <Receipt className={`w-5 h-5 text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-600`} />
+                <div className={(statsSummary?.balance_left || 0) > 0 ? 'p-2 bg-orange-100 rounded-lg' : 'p-2 bg-emerald-100 rounded-lg'}>
+                  <Receipt className={(statsSummary?.balance_left || 0) > 0 ? 'w-5 h-5 text-orange-600' : 'w-5 h-5 text-emerald-600'} />
                 </div>
               </div>
-              <p className={`text-xs font-medium text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-600 uppercase tracking-wide mb-1`}>Balance Due</p>
-              <p className={`text-2xl font-bold text-${(statsSummary?.balance_left || 0) > 0 ? 'orange' : 'emerald'}-700`}>₹{((statsSummary?.balance_left || 0) / 1000).toFixed(1)}k</p>
+              <p className={(statsSummary?.balance_left || 0) > 0 ? 'text-xs font-medium text-orange-600 uppercase tracking-wide mb-1' : 'text-xs font-medium text-emerald-600 uppercase tracking-wide mb-1'}>Balance Due</p>
+              <p className={(statsSummary?.balance_left || 0) > 0 ? 'text-2xl font-bold text-orange-700' : 'text-2xl font-bold text-emerald-700'}>₹{((statsSummary?.balance_left || 0) / 1000).toFixed(1)}k</p>
               <p className="text-xs text-slate-500 mt-1">{(statsSummary?.balance_left || 0) > 0 ? 'Pending' : 'Cleared'}</p>
             </CardContent>
           </Card>

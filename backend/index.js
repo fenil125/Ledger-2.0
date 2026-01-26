@@ -30,12 +30,21 @@ app.use(cors({
 
 app.use(bodyParser.json());
 
+// Validate required environment variables
+if (!process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET environment variable is required');
+  process.exit(1);
+}
+
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000
+  } // 24 hours
 }));
 
 // Initialize Passport
@@ -264,28 +273,16 @@ app.get('/api/notifications/unread-count', authenticateToken, async (req, res) =
 });
 
 // ============ USER ROUTES ============
-app.post('/api/users/register', upload.single('profileImage'), async (req, res) => {
-  try {
-    const { email, name, password, role } = req.body;
-    let profileImage = null;
+// NOTE: /api/users/register removed - using Google OAuth only
 
-    if (req.file) {
-      profileImage = await uploadToCloudinary(req.file, 'users');
+// Get user by ID (protected - users can only access their own data, admins can access all)
+app.get('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    // Authorization check: only allow access to own data or if admin
+    if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: You can only access your own profile' });
     }
 
-    const user = await prisma.user.create({
-      data: { email, name, password, role: role || 'user', profileImage },
-      select: { id: true, email: true, name: true, role: true, profileImage: true, createdAt: true },
-    });
-
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.get('/api/users/:id', async (req, res) => {
-  try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
       select: { id: true, email: true, name: true, role: true, profileImage: true, isActive: true, createdAt: true },

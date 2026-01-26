@@ -92,7 +92,7 @@ export const base44 = {
   },
 
   async exportCSV() {
-    const response = await fetch(`${API_BASE_URL}/api/export/csv`, {
+    const response = await fetch(`${API_BASE_URL}/api/export`, {
       method: 'GET',
       headers: getAuthHeaders()
     });

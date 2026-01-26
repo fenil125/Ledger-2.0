@@ -27,11 +27,11 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
 
   useEffect(() => {
     if (transaction) {
-      setFormData({
-        ...formData,
+      setFormData(prev => ({
+        ...prev,
         ...transaction,
         date: transaction.date || new Date().toISOString().split('T')[0]
-      });
+      }));
     }
   }, [transaction]);
 
@@ -123,6 +123,7 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
                 value={formData.party_name}
                 onChange={(e) => setFormData({ ...formData, party_name: e.target.value })}
                 className="mt-2"
+                required
               />
             </div>
             <div>
@@ -259,8 +260,8 @@ export default function BuyingForm({ transaction, parties, onSubmit, isLoading }
       </div>
 
       <div className="flex justify-end">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={isLoading}
           className="bg-indigo-600 hover:bg-indigo-700 px-8"
         >

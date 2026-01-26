@@ -320,8 +320,12 @@ export default function Parties() {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
-                  {editingParty ? 'Update' : 'Add'} Party
+                <Button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                >
+                  {(createMutation.isPending || updateMutation.isPending) ? 'Saving...' : (editingParty ? 'Update' : 'Add')} Party
                 </Button>
               </div>
             </form>

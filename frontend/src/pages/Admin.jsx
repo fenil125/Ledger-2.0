@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Users, Activity, TrendingUp, ShoppingCart, Search, User, Shield, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { format, isToday } from "date-fns";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -57,13 +57,13 @@ export default function AdminDashboard() {
       }
       stats[user].totalWeight += t.total_weight || 0;
     });
-    
+
     return Object.entries(stats)
-      .map(([email, data]) => ({ 
-        email, 
-        ...data, 
+      .map(([email, data]) => ({
+        email,
+        ...data,
         total: data.buying + data.selling,
-        transactions: data.buyingCount + data.sellingCount 
+        transactions: data.buyingCount + data.sellingCount
       }))
       .sort((a, b) => b.total - a.total);
   }, [transactions]);
@@ -78,20 +78,20 @@ export default function AdminDashboard() {
   // Filter transactions
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
-    
+
     if (userFilter !== 'all') {
       filtered = filtered.filter(t => t.created_by === userFilter);
     }
-    
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter(t =>
         t.party_name?.toLowerCase().includes(search) ||
         t.phone?.includes(search) ||
         t.created_by?.toLowerCase().includes(search)
       );
     }
-    
+
     return filtered;
   }, [transactions, userFilter, searchTerm]);
 
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
     totalBuying: transactions.filter(t => t.transaction_type === 'buying').reduce((sum, t) => sum + (t.total_payment || 0), 0),
     totalSelling: transactions.filter(t => t.transaction_type === 'selling').reduce((sum, t) => sum + (t.total_payment || 0), 0),
     totalParties: parties.length,
-    todayTransactions: transactions.filter(t => t.date === format(new Date(), 'yyyy-MM-dd')).length
+    todayTransactions: transactions.filter(t => t.date && isToday(new Date(t.date))).length
   };
 
   // Redirect if not admin
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-red-400 uppercase">Total Buying</p>
-                    <p className="text-2xl font-bold text-white mt-1">₹{(overallStats.totalBuying/100000).toFixed(1)}L</p>
+                    <p className="text-2xl font-bold text-white mt-1">₹{(overallStats.totalBuying / 100000).toFixed(1)}L</p>
                   </div>
                   <div className="p-3 bg-red-500/20 rounded-xl">
                     <ShoppingCart className="w-5 h-5 text-red-400" />
@@ -195,7 +195,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-green-400 uppercase">Total Selling</p>
-                    <p className="text-2xl font-bold text-white mt-1">₹{(overallStats.totalSelling/100000).toFixed(1)}L</p>
+                    <p className="text-2xl font-bold text-white mt-1">₹{(overallStats.totalSelling / 100000).toFixed(1)}L</p>
                   </div>
                   <div className="p-3 bg-green-500/20 rounded-xl">
                     <TrendingUp className="w-5 h-5 text-green-400" />
@@ -218,8 +218,8 @@ export default function AdminDashboard() {
                   <BarChart data={userActivityData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
-                    <Tooltip 
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip
                       contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
                       labelStyle={{ color: '#f8fafc' }}
                       formatter={(value) => `₹${value.toLocaleString()}`}
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
                       <p className="text-xs text-slate-400">{user.transactions} transactions</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-white">₹{(user.total/1000).toFixed(0)}k</p>
+                      <p className="text-sm font-semibold text-white">₹{(user.total / 1000).toFixed(0)}k</p>
                     </div>
                   </div>
                 ))}
